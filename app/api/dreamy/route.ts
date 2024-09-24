@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 export const runtime = 'edge'; // Use Edge Runtime
@@ -13,10 +14,7 @@ export async function POST(req: Request) {
     const { prompt } = await req.json();
 
     if (!prompt) {
-      return new Response(JSON.stringify({ error: 'Prompt is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
     // Create a thread
@@ -57,18 +55,12 @@ export async function POST(req: Request) {
         return acc;
       }, '');
 
-      return new Response(JSON.stringify({ reply: responseContent }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return NextResponse.json({ reply: responseContent });
     } else {
       throw new Error('No response from assistant');
     }
   } catch (error) {
     console.error('Error:', error);
-    return new Response(JSON.stringify({ error: 'Failed to get assistant response' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json({ error: 'Failed to get assistant response' }, { status: 500 });
   }
 }
