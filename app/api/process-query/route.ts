@@ -1,16 +1,17 @@
-// pages/api/process-query.ts
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { processTokenTransaction } from '../../../components/token system/TokenSystem';
-import { hasEnoughTokens } from '../../../components/utils/token utils/TokenUtility';
-import { supabase } from '@/supabase/supabaseClient';
-import { User } from '../../../components/utils/token utils/types';  // Make sure to import the User type
+// app/api/process-query/route.ts
+import { NextResponse } from 'next/server';
+import { processTokenTransaction } from '@/components/token system/TokenSystem';
+import { hasEnoughTokens } from '@/components/utils/token utils/TokenUtility';
+import { createClient } from '@supabase/supabase-js';
+import { User } from '@/components/utils/token utils/types';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json(false);
-  }
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL!;
+const supabaseKey = process.env.SUPABASE_KEY!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-  const { userId, query } = req.body;
+export async function POST(request: Request) {
+  const { userId, query } = await request.json();
 
   // Fetch user from database
   const { data: user, error } = await supabase
@@ -20,14 +21,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .single();
 
   if (error || !user) {
-    return res.status(404).json(false);
+    return NextResponse.json(false, { status: 404 });
   }
 
   if (!hasEnoughTokens(user as User, query)) {
-    return res.status(402).json(false);
+    return NextResponse.json(false, { status: 402 });
   }
 
   const success = await processTokenTransaction(userId, query);
 
-  return res.status(200).json(success);
+  return NextResponse.json(success);
 }
