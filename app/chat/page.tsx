@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Container,
   TextInput,
@@ -35,7 +36,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Lobster } from 'next/font/google';
 import { useMediaQuery, useDisclosure } from '@mantine/hooks';
 
-
 const lobster = Lobster({ weight: '400', subsets: ['latin'] })
 
 type Message = {
@@ -47,6 +47,16 @@ type Message = {
     id: string;
     email: string;
   };
+};
+
+type UserData = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  token_balance: number;
+  tokens_spent: number;
+  is_subscribed: boolean;
 };
 
 const theme = createTheme({
@@ -95,6 +105,48 @@ const theme = createTheme({
   },
 });
 
+const checkOrCreateUser = async (authUser: any): Promise<UserData | null> => {
+  // Check if user exists in the users table
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', authUser.email)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error checking user:', error);
+    return null;
+  }
+
+  if (data) {
+    // User exists, return their data
+    return data as UserData;
+  } else {
+    // User doesn't exist, create new user
+    const newUser = {
+      id: authUser.id,
+      first_name: authUser.user_metadata?.first_name || '',
+      last_name: authUser.user_metadata?.last_name || '',
+      email: authUser.email,
+      token_balance: 250,
+      tokens_spent: 0,
+      is_subscribed: false // Default to false for new users
+    };
+
+    const { data: insertedUser, error: insertError } = await supabase
+      .from('users')
+      .insert(newUser)
+      .single();
+
+    if (insertError) {
+      console.error('Error creating user:', insertError);
+      return null;
+    }
+
+    return newUser;
+  }
+};
+
 const Chat: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState<string>('');
@@ -115,7 +167,7 @@ const Chat: React.FC = () => {
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
   const isDesktop = useMediaQuery('(min-width: 768px)');
-  
+  const [userData, setUserData] = useState<UserData | null>(null);
 
   const dreamHistory = [
     { id: '1', title: 'Flying over mountains', timestamp: '2023-06-01' },
@@ -127,34 +179,89 @@ const Chat: React.FC = () => {
     return words.length > 4 ? words.slice(0, 4).join(' ') + '...' : title;
   };
 
+  const router = useRouter();
+
+const handleLogout = async () => {
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+
+    // Clear any user-related state
+
+    // Show a notification
+    notifications.show({
+      title: 'Logged Out',
+      message: 'You have been successfully logged out.',
+      color: 'blue',
+    });
+
+    // Redirect to the home page
+    router.push('/');
+  } catch (error) {
+    console.error('Error during logout:', error);
+    notifications.show({
+      title: 'Logout Error',
+      message: 'An error occurred during logout. Please try again.',
+      color: 'red',
+    });
+  }
+};
+
   useEffect(() => {
     const fetchUserAndMessages = async () => {
       setLoading(true);
       
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUserId(user?.id || null);
-
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*, user:profiles(*)')
-        .order('created_at', { ascending: true })
-        .limit(100);
-
-      if (error) {
+      try {
+        // Get the current authenticated user
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          setCurrentUserId(user.id);
+          
+          // Check if user exists in the users table or create a new entry
+          const userData = await checkOrCreateUser(user);
+          if (userData) {
+            setUserData(userData);
+            // Set the subscription status based on the is_subscribed field
+            setIsSubscriptionActive(userData.is_subscribed);
+          }
+  
+          // Fetch messages
+          const { data: messagesData, error: messagesError } = await supabase
+            .from('messages')
+            .select('*')
+            .order('created_at', { ascending: true })
+            .limit(100);
+  
+          if (messagesError) {
+            throw messagesError;
+          }
+  
+          setMessages(messagesData as Message[]);
+        } else {
+          // Handle case where there is no authenticated user
+          console.log('No authenticated user found');
+          setCurrentUserId(null);
+          setUserData(null);
+          setIsSubscriptionActive(false);
+          setMessages([]);
+        }
+      } catch (error) {
+        console.error('Error fetching user and messages:', error);
         notifications.show({
           title: 'Error',
-          message: 'Failed to load messages.',
+          message: 'Failed to load user data and messages.',
           color: 'red',
         });
-      } else {
-        setMessages(data as Message[]);
+      } finally {
+        setLoading(false);
+        scrollToBottom();
       }
-      setLoading(false);
-      scrollToBottom();
     };
-
+  
     fetchUserAndMessages();
-
+  
+    // Set up real-time subscription for new messages
     const channel = supabase
       .channel('public:messages')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
@@ -162,11 +269,13 @@ const Chat: React.FC = () => {
         scrollToBottom();
       })
       .subscribe();
-
+  
+    // Cleanup function
     return () => {
       supabase.removeChannel(channel);
     };
   }, []);
+
 
   const scrollToBottom = () => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -186,24 +295,54 @@ const Chat: React.FC = () => {
       return;
     }
 
-    const { error } = await supabase.from('messages').insert([
-      {
-        content: newMessage,
-        user_id: currentUserId,
-      },
-    ]);
+    // Add user message to the UI immediately
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content: newMessage,
+      user_id: currentUserId,
+      created_at: new Date().toISOString(),
+      user: { id: currentUserId, email: '' },
+    };
+    setMessages((prev) => [...prev, userMessage]);
 
-    if (error) {
+    try {
+      // Send message to API
+      const response = await fetch('/api/dreamy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: newMessage }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get assistant response');
+      }
+
+      const data = await response.json();
+
+      // Add assistant's response to the UI
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: data.reply,
+        user_id: 'assistant',
+        created_at: new Date().toISOString(),
+        user: { id: 'assistant', email: 'assistant@example.com' },
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      // Clear input and scroll to bottom
+      setNewMessage('');
+      scrollToBottom();
+    } catch (error) {
       notifications.show({
         title: 'Error',
-        message: 'Failed to send message.',
+        message: 'Failed to send message or get response.',
         color: 'red',
       });
-    } else {
-      setNewMessage('');
+    } finally {
+      setSending(false);
     }
-
-    setSending(false);
   };
 
   const handleTopUp = (amount: number) => {
@@ -231,7 +370,7 @@ const Chat: React.FC = () => {
             background: 'linear-gradient(135deg, #e0f7fa 0%, #b3e5fc 25%, #9fa8da 50%, #b39ddb 75%, #d1c4e9 100%)'
           },
         })}
-          >
+      >
         <AppShell.Header>
           <Container size="xxl" h="100%" w="100%">
             <Group justify="space-between" h="100%" w="100%">
@@ -294,27 +433,34 @@ const Chat: React.FC = () => {
                         cursor: 'pointer',
                       }}
                     >
-                      <Text size='25px'>US</Text>
+                      <Text size='25px'>
+                        {userData?.first_name ? userData.first_name[0].toUpperCase() : 'U'}
+                      </Text>
                     </Avatar>
                   </div>
                 </Menu.Target>
                 <Menu.Dropdown>
-                  <Menu.Label>
-                    <Text size='xl'>User Settings</Text>
-                  </Menu.Label>
-                  <Menu.Label>
-                    <Flex direction='row' align='center'><Text size='xl'>Subscribed:{' '}</Text>
-                      <Text size='xl' span c={isSubscriptionActive ? "green" : "red"} fw={600}>
-                        {isSubscriptionActive ? 'Yes' : 'No'}
+                <Menu.Label>
+                  <Text size='xl'>User: {userData?.first_name} {userData?.last_name}</Text>
+                </Menu.Label>
+                <Menu.Label>
+                  <Flex direction='row' align='center'>
+                    <Text size='xl'>Token Balance: {userData?.token_balance}</Text>
+                  </Flex>
+                </Menu.Label>
+                <Menu.Label>
+                  <Flex direction='row' align='center'>
+                    <Text size='xl'>Subscribed: {' '}</Text>
+                      <Text size='xl' span c={userData?.is_subscribed ? "green" : "red"} fw={600}>
+                        {userData?.is_subscribed ? 'Yes' : 'No'}
                       </Text>
                     </Flex>
-                  </Menu.Label>
+                </Menu.Label>
                   <Menu.Item onClick={() => setIsSubscriptionModalOpen(true)}>
                    <Text size='xl'>Manage Subscription</Text> 
                   </Menu.Item>
                   <Menu.Item>
                     <Stack align="center">
-                      <Text size='xl'>Tokens: 1000000</Text>
                       <Button 
                         variant="light" 
                         size='lg'
@@ -334,6 +480,7 @@ const Chat: React.FC = () => {
                   </Menu.Item>
                   <Menu.Item>
                     <Button 
+                      onClick={handleLogout}
                       fullWidth 
                       size="lg" 
                       color="red"
@@ -356,53 +503,55 @@ const Chat: React.FC = () => {
         </AppShell.Header>
 
         <AppShell.Navbar
-            p="md"
-            style={{
-              backgroundColor: 'rgba(179, 229, 252, 0.8)',
-              borderRight: '1px solid #9fa8da',
-              transition: 'width 0.3s ease',
-              overflow: 'hidden',
-            }}
-          >
-    <AppShell.Section grow>
-          <Text size="xl" fw={700} mb={15} c="black">
+          p="md"
+          style={{
+            backgroundColor: 'rgba(179, 229, 252, 0.8)',
+            borderRight: '1px solid #9fa8da',
+            transition: 'width 0.3s ease',
+            overflow: 'hidden',
+          }}
+        >
+          <AppShell.Section grow>
+            <Text size="xl" fw={700} mb={15} c="black">
               Dream History
             </Text>
-        <ScrollArea h="calc(100% - 60px)" type="never">
-          {dreamHistory.map((dream) => (
-            <Button
-              key={dream.id}
-              variant="subtle"
-              fullWidth
-              styles={{
-                root: {
-                  justifyContent: 'flex-start',
-                  padding: '10px',
-                  marginBottom: '10px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  height: 'auto',
-                  minHeight: 36,
-                  transition: 'background-color 0.2s ease',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                  },
-                },
-                label: {
-                  color: 'black',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  width: '100%',
-                  textAlign: 'left',
-                },
-              }}
-              onClick={() => {/* Handle dream selection */}}>
-              {truncateTitle(dream.title)}
-            </Button>
-          ))}
-        </ScrollArea>
-      </AppShell.Section>
-    </AppShell.Navbar>
+            <ScrollArea h="calc(100% - 60px)" type="never">
+              {dreamHistory.map((dream) => (
+                <Button
+                  key={dream.id}
+                  variant="subtle"
+                  fullWidth
+                  styles={{
+                    root: {
+                      justifyContent: 'flex-start',
+                      padding: '10px',
+                      marginBottom: '10px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      height: 'auto',
+                      minHeight: 36,
+                      transition: 'background-color 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                      },
+                    },
+                    label: {
+                      color: 'black',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      width: '100%',
+                      textAlign: 'left',
+                    },
+                  }}
+                  onClick={() => {/* Handle dream selection */}}
+                >
+                  {truncateTitle(dream.title)}
+                </Button>
+              ))}
+            </ScrollArea>
+          </AppShell.Section>
+        </AppShell.Navbar>
+
         <AppShell.Main>
           <Container size="md" py="xl">
             <Paper 
@@ -499,12 +648,12 @@ const Chat: React.FC = () => {
                   of self-discovery—subscribe today and elevate your dream exploration!</Text>
                 </Text>
 
-                <Button 
-                  color="blue" 
-                  fullWidth 
-                  mt="md" 
+                <Button
+                  color="blue"
+                  fullWidth
+                  mt="md"
                   radius="md"
-                  onClick={() => setIsSubscriptionActive(true)}
+                  onClick={() => window.location.href = 'https://buy.stripe.com/test_fZedTValBcA72uA9AA'}
                 >
                   Activate Subscription
                 </Button>
@@ -552,98 +701,98 @@ const Chat: React.FC = () => {
                     width={100}
                     alt="Cloud Heart"
                   />
-          </Card.Section>
-          <Text size="xxl" fw={1000} ta="center" c="black" style={{ paddingTop: '25px' }}>
-            TOKENS
-          </Text>
-          <Stack mt="md">
-            <Button 
-              onClick={() => {
-                setSelectedAmount(1500);
-                setConfirmationModalOpen(true);
-              }}
-              styles={(theme) => ({
-                root: {
-                  backgroundColor: theme.colors.blue[6],
-                  '&:hover': { backgroundColor: theme.colors.blue[7] },
-                },
-              })}
-            >
-              1500 Tokens
-            </Button>
-            <Button 
-              onClick={() => {
-                setSelectedAmount(1000);
-                setConfirmationModalOpen(true);
-              }}
-              styles={(theme) => ({
-                root: {
-                  backgroundColor: theme.colors.blue[6],
-                  '&:hover': { backgroundColor: theme.colors.blue[7] },
-                },
-              })}
-            >
-              1000 Tokens
-            </Button>
-            <Button 
-              onClick={() => {
-                setSelectedAmount(500);
-                setConfirmationModalOpen(true);
-              }}
-              styles={(theme) => ({
-                root: {
-                  backgroundColor: theme.colors.blue[6],
-                  '&:hover': { backgroundColor: theme.colors.blue[7] },
-                },
-              })}
-            >
-              500 Tokens
-            </Button>
-          </Stack>
-        </Card>
-      ) : (
-        <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text size="xl" fw={700} ta="center">
-            Subscribe to purchase tokens
-          </Text>
-        </Card>
-      )}
-    </motion.div>
-  </AnimatePresence>
-</Modal>
+                </Card.Section>
+                <Text size="xxl" fw={1000} ta="center" c="black" style={{ paddingTop: '25px' }}>
+                  TOKENS
+                </Text>
+                <Stack mt="md">
+                  <Button 
+                    onClick={() => {
+                      setSelectedAmount(1500);
+                      setConfirmationModalOpen(true);
+                    }}
+                    styles={(theme) => ({
+                      root: {
+                        backgroundColor: theme.colors.blue[6],
+                        '&:hover': { backgroundColor: theme.colors.blue[7] },
+                      },
+                    })}
+                  >
+                    1500 Tokens
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      setSelectedAmount(1000);
+                      setConfirmationModalOpen(true);
+                    }}
+                    styles={(theme) => ({
+                      root: {
+                        backgroundColor: theme.colors.blue[6],
+                        '&:hover': { backgroundColor: theme.colors.blue[7] },
+                      },
+                    })}
+                  >
+                    1000 Tokens
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      setSelectedAmount(500);
+                      setConfirmationModalOpen(true);
+                    }}
+                    styles={(theme) => ({
+                      root: {
+                        backgroundColor: theme.colors.blue[6],
+                        '&:hover': { backgroundColor: theme.colors.blue[7] },
+                      },
+                    })}
+                  >
+                    500 Tokens
+                  </Button>
+                </Stack>
+              </Card>
+            ) : (
+              <Card shadow="sm" padding="lg" radius="md" withBorder>
+                <Text size="xl" fw={700} ta="center">
+                  Subscribe to purchase tokens
+                </Text>
+              </Card>
+            )}
+            </motion.div>
+          </AnimatePresence>
+        </Modal>
 
-<Modal
-  opened={confirmationModalOpen}
-  onClose={() => setConfirmationModalOpen(false)}
-  title="Confirm Purchase"
->
-  <Text size="lg" mb="md">
-    Are you sure you want to purchase {selectedAmount} tokens?
-  </Text>
-  <Group>
-    <Button
-      onClick={() => {
-        // Here you would typically redirect to Stripe or process the payment
-        console.log(`Processing payment for ${selectedAmount} tokens`);
-        setConfirmationModalOpen(false);
-        setIsTopUpModalOpen(false);
-        // Add your Stripe redirect logic here
-      }}
-      color="green"
-    >
-      Yes, Purchase
-    </Button>
-    <Button
-      onClick={() => setConfirmationModalOpen(false)}
-      color="gray"
-    >
-      No, Cancel
-    </Button>
-  </Group>
-</Modal>
-  </AppShell>
-</MantineProvider>
-);
+        <Modal
+          opened={confirmationModalOpen}
+          onClose={() => setConfirmationModalOpen(false)}
+          title="Confirm Purchase"
+        >
+          <Text size="lg" mb="md">
+            Are you sure you want to purchase {selectedAmount} tokens?
+          </Text>
+          <Group>
+            <Button
+              onClick={() => {
+                // Here you would typically redirect to Stripe or process the payment
+                console.log(`Processing payment for ${selectedAmount} tokens`);
+                setConfirmationModalOpen(false);
+                setIsTopUpModalOpen(false);
+                // Add your Stripe redirect logic here
+              }}
+              color="green"
+            >
+              Yes, Purchase
+            </Button>
+            <Button
+              onClick={() => setConfirmationModalOpen(false)}
+              color="gray"
+            >
+              No, Cancel
+            </Button>
+          </Group>
+        </Modal>
+      </AppShell>
+    </MantineProvider>
+  );
 };
 
 export default Chat;
