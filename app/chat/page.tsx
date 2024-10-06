@@ -59,6 +59,12 @@ type UserData = {
   is_subscribed: boolean;
 };
 
+type DreamSession = {
+  id: string;
+  dream_text: string;
+  created_at: string;
+};
+
 const theme = createTheme({
   primaryColor: 'blue',
   fontFamily: 'Segoe UI, sans-serif',
@@ -168,11 +174,8 @@ const Chat: React.FC = () => {
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const [userData, setUserData] = useState<UserData | null>(null);
-
-  const dreamHistory = [
-    { id: '1', title: 'Flying over mountains', timestamp: '2023-06-01' },
-    { id: '2', title: 'Underwater city with mermaids and talking fish', timestamp: '2023-06-03' },
-  ];
+  const [dreamHistory, setDreamHistory] = useState<DreamSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   const truncateTitle = (title: string) => {
     const words = title.split(' ');
@@ -208,7 +211,7 @@ const handleLogout = async () => {
 };
 
   useEffect(() => {
-    const fetchUserAndMessages = async () => {
+    const fetchUserAndData = async () => {
       setLoading(true);
       
       try {
@@ -225,19 +228,25 @@ const handleLogout = async () => {
             // Set the subscription status based on the is_subscribed field
             setIsSubscriptionActive(userData.is_subscribed);
           }
-  
-          // Fetch messages
-          const { data: messagesData, error: messagesError } = await supabase
-            .from('messages')
-            .select('*')
-            .order('created_at', { ascending: true })
-            .limit(100);
-  
-          if (messagesError) {
-            throw messagesError;
+
+          // Fetch dream history
+          const { data: dreamHistoryData, error: dreamHistoryError } = await supabase
+            .from('dream_sessions')
+            .select('id, dream_text, created_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+          if (dreamHistoryError) {
+            throw dreamHistoryError;
           }
-  
-          setMessages(messagesData as Message[]);
+
+          setDreamHistory(dreamHistoryData || []);
+
+          // Don't automatically set active session or load messages
+          setActiveSessionId(null);
+          setMessages([]);
+
         } else {
           // Handle case where there is no authenticated user
           console.log('No authenticated user found');
@@ -245,36 +254,74 @@ const handleLogout = async () => {
           setUserData(null);
           setIsSubscriptionActive(false);
           setMessages([]);
+          setDreamHistory([]);
+          setActiveSessionId(null);
         }
       } catch (error) {
-        console.error('Error fetching user and messages:', error);
+        console.error('Error fetching user data and history:', error);
         notifications.show({
           title: 'Error',
-          message: 'Failed to load user data and messages.',
+          message: 'Failed to load user data and dream history.',
           color: 'red',
         });
       } finally {
         setLoading(false);
-        scrollToBottom();
       }
     };
-  
-    fetchUserAndMessages();
-  
-    // Set up real-time subscription for new messages
-    const channel = supabase
-      .channel('public:messages')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        setMessages((prev) => [...prev, payload.new as Message]);
-        scrollToBottom();
-      })
-      .subscribe();
-  
+
+    fetchUserAndData();
+
     // Cleanup function
     return () => {
-      supabase.removeChannel(channel);
+      // No cleanup needed in this case
     };
   }, []);
+
+  const loadDreamSession = async (sessionId: string) => {
+    setLoading(true);
+    try {
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('dream_sessions')
+        .select('dream_text, interpretation')
+        .eq('id', sessionId)
+        .single();
+  
+      if (sessionError) {
+        throw sessionError;
+      }
+  
+      if (sessionData) {
+        const formattedMessages: Message[] = [
+          {
+            id: 'user-message',
+            content: sessionData.dream_text,
+            user_id: currentUserId!,
+            created_at: new Date().toISOString(),
+            user: { id: currentUserId!, email: userData?.email || '' },
+          },
+          {
+            id: 'assistant-message',
+            content: sessionData.interpretation,
+            user_id: 'assistant',
+            created_at: new Date().toISOString(),
+            user: { id: 'assistant', email: 'assistant@example.com' },
+          },
+        ];
+        setMessages(formattedMessages);
+        setActiveSessionId(sessionId);
+      }
+    } catch (error) {
+      console.error('Error loading dream session:', error);
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to load dream session.',
+        color: 'red',
+      });
+    } finally {
+      setLoading(false);
+      scrollToBottom();
+    }
+  };
 
 
   const scrollToBottom = () => {
@@ -284,7 +331,7 @@ const handleLogout = async () => {
   const handleSendMessage = async () => {
     if (newMessage.trim() === '') return;
     setSending(true);
-
+  
     if (!currentUserId) {
       notifications.show({
         title: 'Unauthorized',
@@ -294,17 +341,7 @@ const handleLogout = async () => {
       setSending(false);
       return;
     }
-
-    // Add user message to the UI immediately
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: newMessage,
-      user_id: currentUserId,
-      created_at: new Date().toISOString(),
-      user: { id: currentUserId, email: '' },
-    };
-    setMessages((prev) => [...prev, userMessage]);
-
+  
     try {
       // Send message to API
       const response = await fetch('/api/dreamy', {
@@ -312,29 +349,49 @@ const handleLogout = async () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: newMessage }),
+        body: JSON.stringify({ 
+          prompt: newMessage, 
+          userId: currentUserId,
+          sessionId: activeSessionId 
+        }),
       });
-
+  
       if (!response.ok) {
         throw new Error('Failed to get assistant response');
       }
-
+  
       const data = await response.json();
-
-      // Add assistant's response to the UI
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: data.reply,
-        user_id: 'assistant',
-        created_at: new Date().toISOString(),
-        user: { id: 'assistant', email: 'assistant@example.com' },
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-
+  
+      // Add user message and assistant's response to the UI
+      setMessages(prev => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          content: newMessage,
+          user_id: currentUserId,
+          created_at: new Date().toISOString(),
+          user: { id: currentUserId, email: userData?.email || '' },
+        },
+        {
+          id: (Date.now() + 1).toString(),
+          content: data.reply,
+          user_id: 'assistant',
+          created_at: new Date().toISOString(),
+          user: { id: 'assistant', email: 'assistant@example.com' },
+        }
+      ]);
+  
+      // Set the active session ID
+      setActiveSessionId(data.sessionId);
+  
+      // Refresh dream history
+      await refreshDreamHistory();
+  
       // Clear input and scroll to bottom
       setNewMessage('');
       scrollToBottom();
     } catch (error) {
+      console.error('Error in handleSendMessage:', error);
       notifications.show({
         title: 'Error',
         message: 'Failed to send message or get response.',
@@ -342,6 +399,21 @@ const handleLogout = async () => {
       });
     } finally {
       setSending(false);
+    }
+  };
+  
+  const refreshDreamHistory = async () => {
+    const { data: newHistory, error } = await supabase
+      .from('dream_sessions')
+      .select('id, dream_text, created_at')
+      .eq('user_id', currentUserId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+  
+    if (!error) {
+      setDreamHistory(newHistory || []);
+    } else {
+      console.error('Error refreshing dream history:', error);
     }
   };
 
@@ -501,57 +573,72 @@ const handleLogout = async () => {
             </Group>
           </Container>
         </AppShell.Header>
-
         <AppShell.Navbar
-          p="md"
-          style={{
-            backgroundColor: 'rgba(179, 229, 252, 0.8)',
-            borderRight: '1px solid #9fa8da',
-            transition: 'width 0.3s ease',
-            overflow: 'hidden',
-          }}
-        >
-          <AppShell.Section grow>
-            <Text size="xl" fw={700} mb={15} c="black">
-              Dream History
-            </Text>
-            <ScrollArea h="calc(100% - 60px)" type="never">
-              {dreamHistory.map((dream) => (
-                <Button
-                  key={dream.id}
-                  variant="subtle"
-                  fullWidth
-                  styles={{
-                    root: {
-                      justifyContent: 'flex-start',
-                      padding: '10px',
-                      marginBottom: '10px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                      height: 'auto',
-                      minHeight: 36,
-                      transition: 'background-color 0.2s ease',
-                      '&:hover': {
-                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                      },
+        p="md"
+        style={{
+          backgroundColor: 'rgba(179, 229, 252, 0.8)',
+          borderRight: '1px solid #9fa8da',
+          transition: 'width 0.3s ease',
+          overflow: 'hidden',
+        }}
+      >
+        <AppShell.Section grow>
+          <Text size="xl" fw={700} mb={15} c="black">
+            Dream History
+          </Text>
+          <Button 
+            onClick={() => {
+              setActiveSessionId(null);
+              setMessages([]);
+            }} 
+            fullWidth 
+            mb={15}
+            >
+            Start New Dream Session
+          </Button>
+          <ScrollArea h="calc(100% - 60px)" type="never">
+            {dreamHistory.map((dream) => (
+              <Button
+                key={dream.id}
+                variant="subtle"
+                fullWidth
+                styles={{
+                  root: {
+                    justifyContent: 'flex-start',
+                    padding: '10px',
+                    marginBottom: '10px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    height: 'auto',
+                    minHeight: 36,
+                    transition: 'background-color 0.2s ease',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.2)',
                     },
-                    label: {
-                      color: 'black',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      width: '100%',
-                      textAlign: 'left',
-                    },
-                  }}
-                  onClick={() => {/* Handle dream selection */}}
-                >
-                  {truncateTitle(dream.title)}
-                </Button>
-              ))}
-            </ScrollArea>
-          </AppShell.Section>
-        </AppShell.Navbar>
-
+                  },
+                  label: {
+                    color: 'black',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    width: '100%',
+                    textAlign: 'left',
+                  },
+                }}
+                onClick={() => {loadDreamSession(dream.id)}}
+              >
+                <Stack>
+                  <Text size="sm" fw={700}>
+                    {new Date(dream.created_at).toLocaleDateString()}
+                  </Text>
+                  <Text size="xs">
+                    {truncateTitle(dream.dream_text)}
+                  </Text>
+                </Stack>
+              </Button>
+            ))}
+          </ScrollArea>
+        </AppShell.Section>
+      </AppShell.Navbar>
         <AppShell.Main>
           <Container size="md" py="xl">
             <Paper 

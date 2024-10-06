@@ -1,20 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-
-export const runtime = 'edge'; 
+import { createClient } from '@supabase/supabase-js';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_KEY!
+);
+
 const ASSISTANT_ID = 'asst_7Y5Exec5MCiqPUKWn12cqDA8';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { prompt } = await req.json();
+    const { prompt, userId, sessionId } = await req.json();
 
-    if (!prompt) {
-      return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
+    if (!prompt || !userId) {
+      return NextResponse.json({ error: 'Prompt and userId are required' }, { status: 400 });
     }
 
     // Create a thread
@@ -51,11 +55,62 @@ export async function POST(req: Request) {
         if (content.type === 'text') {
           return acc + content.text.value;
         }
-        // Handle other content types (e.g., images) if needed
         return acc;
       }, '');
 
-      return NextResponse.json({ reply: responseContent });
+      let newSessionId = sessionId;
+
+      // Save or update the dream session
+      if (sessionId) {
+        // Fetch the existing session
+        const { data: existingSession, error: fetchError } = await supabase
+          .from('dream_sessions')
+          .select('dream_text, interpretation')
+          .eq('id', sessionId)
+          .single();
+
+        if (fetchError) {
+          console.error('Error fetching existing session:', fetchError);
+          return NextResponse.json({ error: 'Failed to update session' }, { status: 500 });
+        }
+
+        // Update existing session
+        const { error: updateError } = await supabase
+          .from('dream_sessions')
+          .update({
+            dream_text: `${existingSession.dream_text}\n\n${prompt}`,
+            interpretation: `${existingSession.interpretation}\n\n${responseContent}`
+          })
+          .eq('id', sessionId);
+
+        if (updateError) {
+          console.error('Error updating dream session:', updateError);
+          return NextResponse.json({ error: 'Failed to update session' }, { status: 500 });
+        }
+      } else {
+        // Create new session
+        const { data: insertedSession, error: insertError } = await supabase
+          .from('dream_sessions')
+          .insert({
+            user_id: userId,
+            dream_text: prompt,
+            interpretation: responseContent
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Error saving dream session:', insertError);
+          return NextResponse.json({ error: 'Failed to create new session' }, { status: 500 });
+        }
+
+        newSessionId = insertedSession.id;
+      }
+
+      return NextResponse.json({ 
+        reply: responseContent,
+        sessionId: newSessionId
+      });
     } else {
       throw new Error('No response from assistant');
     }
