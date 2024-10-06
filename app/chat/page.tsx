@@ -35,6 +35,8 @@ import NextImage from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lobster } from 'next/font/google';
 import { useMediaQuery, useDisclosure } from '@mantine/hooks';
+import { processTokenTransaction } from '../../components/token system/TokenSystem';
+import { hasEnoughTokens, estimateTokenCost } from '../../components/utils/token utils/TokenUtility';
 
 const lobster = Lobster({ weight: '400', subsets: ['latin'] })
 
@@ -176,6 +178,8 @@ const Chat: React.FC = () => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [dreamHistory, setDreamHistory] = useState<DreamSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
 
   const truncateTitle = (title: string) => {
     const words = title.split(' ');
@@ -207,6 +211,23 @@ const handleLogout = async () => {
       message: 'An error occurred during logout. Please try again.',
       color: 'red',
     });
+  }
+};
+
+const handleManageSubscription = () => {
+  setIsLoading(true);
+  try {
+    // Redirect to the Stripe billing portal
+    window.location.href = 'https://billing.stripe.com/p/login/test_4gw29Sez273BcyQcMM';
+  } catch (error) {
+    console.error('Error redirecting to subscription management:', error);
+    notifications.show({
+      title: 'Error',
+      message: 'Failed to open subscription management page. Please try again.',
+      color: 'red',
+    });
+  } finally {
+    setIsLoading(false);
   }
 };
 
@@ -332,7 +353,7 @@ const handleLogout = async () => {
     if (newMessage.trim() === '') return;
     setSending(true);
   
-    if (!currentUserId) {
+    if (!currentUserId || !userData) {
       notifications.show({
         title: 'Unauthorized',
         message: 'You must be signed in to send messages.',
@@ -343,6 +364,12 @@ const handleLogout = async () => {
     }
   
     try {
+      // Process token transaction
+      const transactionSuccess = await processTokenTransaction(currentUserId, newMessage);
+      if (!transactionSuccess) {
+        throw new Error('Insufficient tokens');
+      }
+  
       // Send message to API
       const response = await fetch('/api/dreamy', {
         method: 'POST',
@@ -370,7 +397,7 @@ const handleLogout = async () => {
           content: newMessage,
           user_id: currentUserId,
           created_at: new Date().toISOString(),
-          user: { id: currentUserId, email: userData?.email || '' },
+          user: { id: currentUserId, email: userData.email },
         },
         {
           id: (Date.now() + 1).toString(),
@@ -384,6 +411,13 @@ const handleLogout = async () => {
       // Set the active session ID
       setActiveSessionId(data.sessionId);
   
+      // Update user's token balance in the UI
+      const tokenCost = estimateTokenCost(newMessage);
+      setUserData(prevData => ({
+        ...prevData!,
+        token_balance: prevData!.token_balance - tokenCost
+      }));
+  
       // Refresh dream history
       await refreshDreamHistory();
   
@@ -392,11 +426,22 @@ const handleLogout = async () => {
       scrollToBottom();
     } catch (error) {
       console.error('Error in handleSendMessage:', error);
-      notifications.show({
-        title: 'Error',
-        message: 'Failed to send message or get response.',
-        color: 'red',
-      });
+      if (error instanceof Error) {
+        if (error.message === 'Insufficient tokens') {
+          notifications.show({
+            title: 'Insufficient Tokens',
+            message: 'You do not have enough tokens for this query. Please top up your tokens.',
+            color: 'yellow',
+          });
+          setIsTopUpModalOpen(true);
+        } else {
+          notifications.show({
+            title: 'Error',
+            message: 'Failed to send message or get response.',
+            color: 'red',
+          });
+        }
+      }
     } finally {
       setSending(false);
     }
@@ -749,6 +794,7 @@ const handleLogout = async () => {
             <Button 
               color="red" 
               fullWidth
+              onClick={handleManageSubscription}
               styles={(theme) => ({
                 root: {
                   '&:hover': {
