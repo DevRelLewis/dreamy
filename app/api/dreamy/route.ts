@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 export const runtime = 'edge'; // Use Edge Runtime
 
 const openai = new OpenAI({
-  apiKey: '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',
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 const ASSISTANT_ID = 'asst_7Y5Exec5MCiqPUKWn12cqDA8';
