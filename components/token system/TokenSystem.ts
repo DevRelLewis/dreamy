@@ -1,6 +1,6 @@
 // tokenSystem.ts
 import { supabase } from '../../supabase/supabaseClient';
-import { estimateTokenCost } from '../utils/token utils/TokenUtility';
+import { estimateTokenCost } from '../utils/tokenUtils/TokenUtility';
 
 export async function processTokenTransaction(userId: string, query: string): Promise<boolean> {
   const tokenCost = estimateTokenCost(query);

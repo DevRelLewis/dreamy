@@ -36,7 +36,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Lobster } from 'next/font/google';
 import { useMediaQuery, useDisclosure } from '@mantine/hooks';
 import { processTokenTransaction } from '../../components/token system/TokenSystem';
-import { hasEnoughTokens, estimateTokenCost } from '../../components/utils/token utils/TokenUtility';
+import { hasEnoughTokens, estimateTokenCost } from '../../components/utils/tokenUtils/TokenUtility';
 
 const lobster = Lobster({ weight: '400', subsets: ['latin'] })
 
@@ -113,6 +113,7 @@ const theme = createTheme({
   },
 });
 
+
 const checkOrCreateUser = async (authUser: any): Promise<UserData | null> => {
   // Check if user exists in the users table
   const { data, error } = await supabase
@@ -179,7 +180,6 @@ const Chat: React.FC = () => {
   const [dreamHistory, setDreamHistory] = useState<DreamSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
 
   const truncateTitle = (title: string) => {
     const words = title.split(' ');
@@ -413,6 +413,7 @@ const handleManageSubscription = () => {
   
       // Update user's token balance in the UI
       const tokenCost = estimateTokenCost(newMessage);
+      console.log(`Estimated token cost for message: ${tokenCost}`);
       setUserData(prevData => ({
         ...prevData!,
         token_balance: prevData!.token_balance - tokenCost
@@ -578,10 +579,9 @@ const handleManageSubscription = () => {
                   </Menu.Item>
                   <Menu.Item>
                     <Stack align="center">
-                      <Button 
+                      <Container 
                         variant="light" 
                         size='lg'
-                        fullWidth
                         onClick={() => setIsTopUpModalOpen(true)}
                         styles={(theme) => ({
                           root: {
@@ -592,13 +592,12 @@ const handleManageSubscription = () => {
                         })}
                       >
                         <Text size='30px'>Top Up</Text>
-                      </Button>
+                      </Container>
                     </Stack>
                   </Menu.Item>
                   <Menu.Item>
-                    <Button 
+                    <Container 
                       onClick={handleLogout}
-                      fullWidth 
                       size="lg" 
                       color="red"
                       styles={(theme) => ({
@@ -611,7 +610,7 @@ const handleManageSubscription = () => {
                       })}
                     >
                       <Text span size="30px" fw={700}>Logout</Text>
-                    </Button>
+                    </Container>
                   </Menu.Item>
                 </Menu.Dropdown>
               </Menu>

@@ -1,6 +1,6 @@
 // tokenUtils.ts
 import { TOKENS_PER_CHARACTER, MIN_TOKENS_PER_QUERY } from '../../../constants/constants';
-import { User } from './types';  // Make sure to import the User type
+import { User } from './types'; 
 
 export function estimateTokenCost(query: string): number {
   const estimatedTokens = Math.ceil(query.length * TOKENS_PER_CHARACTER);
@@ -9,5 +9,5 @@ export function estimateTokenCost(query: string): number {
 
 export function hasEnoughTokens(user: User, query: string): boolean {
   const estimatedCost = estimateTokenCost(query);
-  return user.token_balance >= estimatedCost;  // Changed from tokenBalance to token_balance
+  return user.token_balance >= estimatedCost;  
 }

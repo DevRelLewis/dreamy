@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { processTokenTransaction } from '@/components/token system/TokenSystem';
 import { hasEnoughTokens } from '@/components/utils/token utils/TokenUtility';
 import { createClient } from '@supabase/supabase-js';
-import { User } from '@/components/utils/token utils/types';
+import { User } from '@/components/utils/tokenUtils/types';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL!;
