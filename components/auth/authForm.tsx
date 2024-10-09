@@ -131,7 +131,7 @@ const AuthForm: React.FC = () => {
       <Image
         component={NextImage}
         h='100vh'
-        width={600}
+        width={1200}
         src={dreamsanbg}
         alt="dreamsanbg"
         style={{

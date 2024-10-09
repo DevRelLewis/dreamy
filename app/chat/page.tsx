@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   Container,
   TextInput,
+  Box,
   Textarea,
   Button,
   Paper,
@@ -41,6 +42,7 @@ import { processTokenTransaction } from '../../components/token system/TokenSyst
 import { hasEnoughTokens, estimateTokenCost } from '../../components/utils/tokenUtils/TokenUtility';
 
 const lobster = Lobster({ weight: '400', subsets: ['latin'] })
+
 
 type Message = {
   id: string;
@@ -185,6 +187,7 @@ const Chat: React.FC = () => {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFirstMessage, setIsFirstMessage] = useState(true);
+  const isTablet = useMediaQuery('(max-width: 1024px) and (max-height: 790px)');
 
 
   const truncateTitle = (title: string) => {
@@ -523,154 +526,259 @@ const handleManageSubscription = () => {
       <Group>
         <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" />
         <Burger opened={desktopOpened} onClick={toggleDesktop} visibleFrom="md" size="sm" />
-        <Text
-          className={lobster.className}
-          size="xl"
-          fw={700}
-          style={{
-            background: 'linear-gradient(315deg, #b3e5fc 0%, #9fa8da 50%, #b39ddb 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            color: 'transparent',
-            display: 'inline-block',
-            marginLeft: isMobile ? '60px' : '0',
-          }}
-        >
-                  Dream-San
+        <Stack gap="0px" align="flex-start" justify="center" h="100%">
+          <Text
+            className={lobster.className}
+            size="xl"
+            fw={700}
+            style={{
+              background: 'linear-gradient(315deg, #b3e5fc 0%, #9fa8da 50%, #b39ddb 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              color: 'transparent',
+              display: 'inline-block',
+              marginLeft: isMobile ? '60px' : '0',
+            }}
+          >
+            Dream-San
+          </Text>
+          <Text
+            size="sm"
+            hiddenFrom="sm"
+            style={{
+              marginLeft: '60px',
+              fontSize: '12px',
+              opacity: 0.7
+            }}
+          >
+            Token Balance: {userData?.token_balance}
+          </Text>
+        </Stack>
+      </Group>
+      <Group>
+        <Box hiddenFrom="sm" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)' }}>
+          <Menu>
+            <Menu.Target>
+              <Avatar 
+                color="white" 
+                radius="xl" 
+                style={{
+                  transition: 'all 0.2s ease-in-out',
+                  cursor: 'pointer',
+                  border: '2.5px solid rgba(255, 255, 255, 0.2)',
+                }}
+              >
+                <Text size='25px'>
+                  {userData?.first_name ? userData.first_name[0].toUpperCase() : 'U'}
                 </Text>
-              </Group>
-              <Menu>
-              <Group>
-                <Text size='xl' mr="md">Token Balance: {userData?.token_balance}</Text>
-              
-                <Menu.Target>
-                  <div
+              </Avatar>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>
+                <Text size='xl'>User: {userData?.first_name} {userData?.last_name}</Text>
+              </Menu.Label>
+              <Menu.Label>
+                <Flex direction='row' align='center' gap="10px">
+                  <Text size='xl'>Subscribed: {' '}</Text>
+                  <Text size='xl' span c={userData?.is_subscribed ? "green" : "red"} fw={600}>
+                    {userData?.is_subscribed ? 'Yes' : 'No'}
+                  </Text>
+                </Flex>
+              </Menu.Label>
+              <Menu.Item onClick={() => setIsSubscriptionModalOpen(true)}>
+                <Text size='xl'>Manage Subscription</Text> 
+              </Menu.Item>
+              <Menu.Item>
+                <Stack align="center">
+                  <Container 
+                    onClick={() => setIsTopUpModalOpen(true)}
                     style={{
-                      display: 'inline-block',
-                      borderRadius: '60%',
-                      overflow: 'hidden',
+                      backgroundColor: 'rgba(179, 229, 252, 0.8)', 
+                      borderRadius: '8px', 
+                      padding: '10px 20px',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.3s ease',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      width: '100%', 
                     }}
-                    onMouseEnter={(e) => {
-                      const avatar = e.currentTarget.firstElementChild as HTMLElement;
-                      if (avatar) {
-                        avatar.style.boxShadow = `
-                          0 0 20px 10px rgba(255, 255, 255, 0.8),
-                          0 0 40px 20px rgba(255, 255, 255, 0.6),
-                          0 0 60px 30px rgba(255, 255, 255, 0.4),
-                          0 0 80px 40px rgba(255, 255, 255, 0.2),
-                          0 0 100px 50px rgba(255, 255, 255, 0.1)
-                        `;
-                        avatar.style.border = '2px solid rgba(255, 255, 255, 1)';
-                        avatar.style.fontWeight = '700';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      const avatar = e.currentTarget.firstElementChild as HTMLElement;
-                      if (avatar) {
-                        avatar.style.boxShadow = 'none';
-                        avatar.style.border = '2.5px solid rgba(255, 255, 255, 0.2)';
-                        avatar.style.fontWeight = '400';
-                      }
-                    }}
-                  >
-                    <Avatar 
-                      color="white" 
-                      radius="xl" 
-                      style={{
-                        transition: 'all 0.2s ease-in-out',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <Text size='25px'>
-                        {userData?.first_name ? userData.first_name[0].toUpperCase() : 'U'}
-                      </Text>
-                    </Avatar>
-                  </div>
-                </Menu.Target>
-                </Group>
-                <Menu.Dropdown>
-                <Menu.Label>
-                  <Text size='xl'>User: {userData?.first_name} {userData?.last_name}</Text>
-                </Menu.Label>
-                <Menu.Label>
-
-                </Menu.Label>
-                <Menu.Label>
-                  <Flex direction='row' align='center' gap="10px">
-                    <Text size='xl'>Subscribed: {' '}</Text>
-                      <Text size='xl' span c={userData?.is_subscribed ? "green" : "red"} fw={600}>
-                        {userData?.is_subscribed ? 'Yes' : 'No'}
-                      </Text>
-                    </Flex>
-                </Menu.Label>
-                  <Menu.Item onClick={() => setIsSubscriptionModalOpen(true)}>
-                   <Text size='xl'>Manage Subscription</Text> 
-                  </Menu.Item>
-                  <Menu.Item>
-                    <Stack align="center">
-                    <Container 
-                        onClick={() => setIsTopUpModalOpen(true)}
-                        style={{
-                          backgroundColor: 'rgba(179, 229, 252, 0.8)', 
-                          borderRadius: '8px', 
-                          padding: '10px 20px',
-                          cursor: 'pointer',
-                          transition: 'background-color 0.3s ease',
-                          display: 'flex',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          width: '100%', 
-                        }}
-                        styles={(theme) => ({
-                          root: {
-                            '&:hover': {
-                              backgroundColor: theme.colors.blue[1],
-                            },
-                            '&:active': {
-                              backgroundColor: theme.colors.blue[2],
-                            },
-                          },
-                        })}
-                      >
-                        <Text size="25px" fw={500} span style={{ color: '#2c2c2c' }}>Top Up</Text>
-                      </Container>
-                    </Stack>
-                  </Menu.Item>
-                  <Menu.Item>
-                    <Container 
-                      onClick={handleLogout}
-                      size="lg" 
-                      style={{
-                        backgroundColor: 'red', 
-                        borderRadius: '8px', 
-                        padding: '10px 20px',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.3s ease',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        width: '100%',
-                      }}
-                      styles={(theme) => ({
-                        root: {
-                          '&:hover': {
-                            backgroundColor: theme.colors.blue[1],
-                          },
-                          '&:active': {
-                            backgroundColor: theme.colors.blue[2],
-                          },
+                    styles={(theme) => ({
+                      root: {
+                        '&:hover': {
+                          backgroundColor: theme.colors.blue[1],
                         },
-                      })}
-                    >
-                      <Text size="25px" fw={500} span style={{ color: 'black' }}>Logout</Text>
-                    </Container>
-                  </Menu.Item>
-                </Menu.Dropdown>
-              </Menu>
-            </Group>
-          </Container>
-        </AppShell.Header>
+                        '&:active': {
+                          backgroundColor: theme.colors.blue[2],
+                        },
+                      },
+                    })}
+                  >
+                    <Text size="25px" fw={500} span style={{ color: '#2c2c2c' }}>Top Up</Text>
+                  </Container>
+                </Stack>
+              </Menu.Item>
+              <Menu.Item>
+                <Container 
+                  onClick={handleLogout}
+                  size="lg" 
+                  style={{
+                    backgroundColor: 'red', 
+                    borderRadius: '8px', 
+                    padding: '10px 20px',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.3s ease',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    width: '100%',
+                  }}
+                  styles={(theme) => ({
+                    root: {
+                      '&:hover': {
+                        backgroundColor: theme.colors.blue[1],
+                      },
+                      '&:active': {
+                        backgroundColor: theme.colors.blue[2],
+                      },
+                    },
+                  })}
+                >
+                  <Text size="25px" fw={500} span style={{ color: 'black' }}>Logout</Text>
+                </Container>
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        </Box>
+        <Group visibleFrom="sm">
+          <Text size='xl' mr="md">Token Balance: {userData?.token_balance}</Text>
+          <Menu>
+            <Menu.Target>
+              <div
+                style={{
+                  display: 'inline-block',
+                  borderRadius: '60%',
+                  overflow: 'hidden',
+                }}
+                onMouseEnter={(e) => {
+                  const avatar = e.currentTarget.firstElementChild as HTMLElement;
+                  if (avatar) {
+                    avatar.style.boxShadow = `
+                      0 0 20px 10px rgba(255, 255, 255, 0.8),
+                      0 0 40px 20px rgba(255, 255, 255, 0.6),
+                      0 0 60px 30px rgba(255, 255, 255, 0.4),
+                      0 0 80px 40px rgba(255, 255, 255, 0.2),
+                      0 0 100px 50px rgba(255, 255, 255, 0.1)
+                    `;
+                    avatar.style.border = '2px solid rgba(255, 255, 255, 1)';
+                    avatar.style.fontWeight = '700';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  const avatar = e.currentTarget.firstElementChild as HTMLElement;
+                  if (avatar) {
+                    avatar.style.boxShadow = 'none';
+                    avatar.style.border = '2.5px solid rgba(255, 255, 255, 0.2)';
+                    avatar.style.fontWeight = '400';
+                  }
+                }}
+              >
+                <Avatar 
+                  color="white" 
+                  radius="xl" 
+                  style={{
+                    transition: 'all 0.2s ease-in-out',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Text size='25px'>
+                    {userData?.first_name ? userData.first_name[0].toUpperCase() : 'U'}
+                  </Text>
+                </Avatar>
+              </div>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>
+                <Text size='xl'>User: {userData?.first_name} {userData?.last_name}</Text>
+              </Menu.Label>
+              <Menu.Label>
+                <Flex direction='row' align='center' gap="10px">
+                  <Text size='xl'>Subscribed: {' '}</Text>
+                  <Text size='xl' span c={userData?.is_subscribed ? "green" : "red"} fw={600}>
+                    {userData?.is_subscribed ? 'Yes' : 'No'}
+                  </Text>
+                </Flex>
+              </Menu.Label>
+              <Menu.Item onClick={() => setIsSubscriptionModalOpen(true)}>
+                <Text size='xl'>Manage Subscription</Text> 
+              </Menu.Item>
+              <Menu.Item>
+                <Stack align="center">
+                  <Container 
+                    onClick={() => setIsTopUpModalOpen(true)}
+                    style={{
+                      backgroundColor: 'rgba(179, 229, 252, 0.8)', 
+                      borderRadius: '8px', 
+                      padding: '10px 20px',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.3s ease',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      width: '100%', 
+                    }}
+                    styles={(theme) => ({
+                      root: {
+                        '&:hover': {
+                          backgroundColor: theme.colors.blue[1],
+                        },
+                        '&:active': {
+                          backgroundColor: theme.colors.blue[2],
+                        },
+                      },
+                    })}
+                  >
+                    <Text size="25px" fw={500} span style={{ color: '#2c2c2c' }}>Top Up</Text>
+                  </Container>
+                </Stack>
+              </Menu.Item>
+              <Menu.Item>
+                <Container 
+                  onClick={handleLogout}
+                  size="lg" 
+                  style={{
+                    backgroundColor: 'red', 
+                    borderRadius: '8px', 
+                    padding: '10px 20px',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.3s ease',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    width: '100%',
+                  }}
+                  styles={(theme) => ({
+                    root: {
+                      '&:hover': {
+                        backgroundColor: theme.colors.blue[1],
+                      },
+                      '&:active': {
+                        backgroundColor: theme.colors.blue[2],
+                      },
+                    },
+                  })}
+                >
+                  <Text size="25px" fw={500} span style={{ color: 'black' }}>Logout</Text>
+                </Container>
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        </Group>
+      </Group>
+    </Group>
+  </Container>
+</AppShell.Header>
 
         <AppShell.Navbar
           p="md"
@@ -738,6 +846,7 @@ const handleManageSubscription = () => {
             </Stack>
           </ScrollArea>
         </AppShell.Navbar>
+
         <AppShell.Main>
           <Container size="md" py="xl">
             <Paper 
@@ -755,59 +864,58 @@ const handleManageSubscription = () => {
               }}
             >
               <ScrollArea style={{ flex: 1, marginBottom: '1rem' }}>
-              {loading ? (
-                <Group justify="center" mt="xl">
-                  <Loader color="black" />
-                </Group>
-              ) : (
-                messages.map((msg, index) => (
-                  <Group
-                    key={msg.id}
-                    justify={msg.user_id === currentUserId ? 'flex-end' : 'flex-start'}
-                    gap="xs"
-                    mb="xs"
-                  >
-                    {msg.user_id !== currentUserId && msg.imageUrl && (
-                      <Flex justify="center" align="center" style={{ width: '100%', minHeight: 220, gap: 'sm' }}>
-                        <Image 
-                          src={msg.imageUrl} 
-                          alt="Dream visualization" 
-                          radius="md" 
-                          width={200} 
-                          height={200} 
-                          fit="contain"
-                        />
-                    </Flex>
-                    )}
-                    <Paper
-                      radius="md"
-                      p="xs"
-                      bg={msg.user_id === currentUserId 
-                        ? 'rgba(255, 255, 255, 0.5)' 
-                        : 'rgba(179, 229, 252, 0.8)'}
-                    >
-                      {msg.user_id === currentUserId 
-                        ? <Text size="sm">{msg.content}</Text>
-                        : <Markdown>{msg.content}</Markdown>}
-                      
-                    </Paper>
+                {loading ? (
+                  <Group justify="center" mt="xl">
+                    <Loader color="black" />
                   </Group>
-                ))
-              )}
-              <div ref={scrollRef} />
-            </ScrollArea>
-              <Group align="flex-end" w="100%">
-              <Textarea
-                placeholder="Type your message..."
-                value={newMessage}
-                onChange={(event: any) => setNewMessage(event.currentTarget.value)}
-                size='12px'
-                autosize
-                minRows={1} 
-                maxRows={7} 
-                style={{ width: '85%' }}
-                disabled={sending}
-                styles={{
+                ) : (
+                  messages.map((msg) => (
+                    <Group
+                      key={msg.id}
+                      justify={msg.user_id === currentUserId ? 'flex-end' : 'flex-start'}
+                      gap="xs"
+                      mb="xs"
+                    >
+                      {msg.user_id !== currentUserId && msg.imageUrl && (
+                        <Flex justify="center" align="center" style={{ width: '100%', minHeight: 220, gap: 'sm' }}>
+                          <Image 
+                            src={msg.imageUrl} 
+                            alt="Dream visualization" 
+                            radius="md" 
+                            width={200} 
+                            height={200} 
+                            fit="contain"
+                          />
+                        </Flex>
+                      )}
+                      <Paper
+                        radius="md"
+                        p="xs"
+                        bg={msg.user_id === currentUserId 
+                          ? 'rgba(255, 255, 255, 0.5)' 
+                          : 'rgba(179, 229, 252, 0.8)'}
+                      >
+                        {msg.user_id === currentUserId 
+                          ? <Text size="sm">{msg.content}</Text>
+                          : <Markdown>{msg.content}</Markdown>}
+                      </Paper>
+                    </Group>
+                  ))
+                )}
+                <div ref={scrollRef} />
+              </ScrollArea>
+              <Group align="flex-end" w="100%" style={{ flexDirection: isMobile ? 'column' : 'row' }}>
+                <Textarea
+                  placeholder="Type your message..."
+                  value={newMessage}
+                  onChange={(event) => setNewMessage(event.currentTarget.value)}
+                  size='12px'
+                  autosize
+                  minRows={1} 
+                  maxRows={7} 
+                  style={{ width: isMobile ? '100%' : '85%' }}
+                  disabled={sending}
+                  styles={{
                     input: {
                       borderRadius: '10px',
                       padding: '0.75rem',
@@ -818,19 +926,23 @@ const handleManageSubscription = () => {
                       overflowY: 'auto',
                       scrollbarWidth: 'none', 
                       msOverflowStyle: 'none',
+                    }
                   }}
-                }
-              />
+                />
                 <Button
-                  loaderProps={{ size: 35  }}
+                  loaderProps={{ size: 35 }}
                   color="#999999"
                   onClick={handleSendMessage}
                   loading={sending}
                   disabled={sending}
                   size="42px"
-                  style={{ flex: 1.1 }}
+                  style={{ width: isMobile ? '100%' : 'auto', flex: isMobile ? 'none' : 1.1 }}
                 >
-                  <Text size="15px">☁️ Send</Text>
+                  {isMobile || isTablet ? (
+                    <Text size="20px">☁️</Text>
+                  ) : (
+                    <Text size="20px">☁️ Send</Text>
+                  )}
                 </Button>
               </Group>
             </Paper>
