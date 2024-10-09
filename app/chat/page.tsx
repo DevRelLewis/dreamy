@@ -39,6 +39,7 @@ import { Lobster } from 'next/font/google';
 import { useMediaQuery, useDisclosure } from '@mantine/hooks';
 import { processTokenTransaction } from '../../components/token system/TokenSystem';
 import { hasEnoughTokens, estimateTokenCost } from '../../components/utils/tokenUtils/TokenUtility';
+import { Typewriter } from 'react-simple-typewriter';
 
 const lobster = Lobster({ weight: '400', subsets: ['latin'] })
 
@@ -185,6 +186,7 @@ const Chat: React.FC = () => {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFirstMessage, setIsFirstMessage] = useState(true);
+  const [doneTyping, setDoneTyping] = useState(false);
 
 
   const truncateTitle = (title: string) => {
@@ -307,7 +309,7 @@ const handleManageSubscription = () => {
     try {
       const { data: sessionData, error: sessionError } = await supabase
         .from('dream_sessions')
-        .select('dream_text, interpretation, image_url') // Add image_url here
+        .select('messages, image_url')
         .eq('id', sessionId)
         .single();
   
@@ -315,24 +317,15 @@ const handleManageSubscription = () => {
         throw sessionError;
       }
   
-      if (sessionData) {
-        const formattedMessages: Message[] = [
-          {
-            id: 'user-message',
-            content: sessionData.dream_text,
-            user_id: currentUserId!,
-            created_at: new Date().toISOString(),
-            user: { id: currentUserId!, email: userData?.email || '' },
-          },
-          {
-            id: 'assistant-message',
-            content: sessionData.interpretation,
-            user_id: 'assistant',
-            created_at: new Date().toISOString(),
-            user: { id: 'assistant', email: 'assistant@example.com' },
-            imageUrl: sessionData.image_url, // Add this line
-          },
-        ];
+      if (sessionData && sessionData.messages) {
+        const formattedMessages: Message[] = sessionData.messages.flat();
+        
+        // Ensure the image URL is set for the first assistant message
+        const firstAssistantMessageIndex = formattedMessages.findIndex(msg => msg.user_id === 'assistant');
+        if (firstAssistantMessageIndex !== -1) {
+          formattedMessages[firstAssistantMessageIndex].imageUrl = sessionData.image_url;
+        }
+  
         setMessages(formattedMessages);
         setActiveSessionId(sessionId);
       }
@@ -408,37 +401,55 @@ const handleManageSubscription = () => {
   
       const data = await response.json();
   
-      // If it's a new session, save the image URL to the database
-      if (!activeSessionId && imageUrl) {
-        const { error: updateError } = await supabase
-          .from('dream_sessions')
-          .update({ image_url: imageUrl })
-          .eq('id', data.sessionId);
+      // Create message objects
+      const userMessage = {
+        id: Date.now().toString(),
+        content: newMessage,
+        user_id: currentUserId,
+        created_at: new Date().toISOString(),
+        user: { id: currentUserId, email: userData.email },
+      };
   
-        if (updateError) {
-          console.error('Error saving image URL:', updateError);
-        }
+      const assistantMessage = {
+        id: (Date.now() + 1).toString(),
+        content: data.reply,
+        user_id: 'assistant',
+        created_at: new Date().toISOString(),
+        user: { id: 'assistant', email: 'assistant@example.com' },
+        imageUrl: imageUrl,
+      };
+  
+      // First, get the current messages array
+      const { data: currentSessionData, error: fetchError } = await supabase
+        .from('dream_sessions')
+        .select('messages')
+        .eq('id', data.sessionId)
+        .single();
+  
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw fetchError;
       }
   
-      // Add user message and assistant's response to the UI
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          content: newMessage,
+      // Prepare the new messages array
+      const updatedMessages = currentSessionData?.messages || [];
+      updatedMessages.push(userMessage, assistantMessage);
+  
+      // Update or create session in Supabase
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('dream_sessions')
+        .upsert({
+          id: data.sessionId,
           user_id: currentUserId,
-          created_at: new Date().toISOString(),
-          user: { id: currentUserId, email: userData.email },
-        },
-        {
-          id: (Date.now() + 1).toString(),
-          content: data.reply,
-          user_id: 'assistant',
-          created_at: new Date().toISOString(),
-          user: { id: 'assistant', email: 'assistant@example.com' },
-          imageUrl: imageUrl,
-        }
-      ]);
+          messages: updatedMessages,
+          image_url: imageUrl,
+        }, { onConflict: 'id' });
+  
+      if (sessionError) {
+        throw sessionError;
+      }
+  
+      // Add messages to UI
+      setMessages(prev => [...prev, userMessage, assistantMessage]);
   
       // Set the active session ID
       setActiveSessionId(data.sessionId);
@@ -457,7 +468,12 @@ const handleManageSubscription = () => {
       setNewMessage('');
       scrollToBottom();
     } catch (error) {
-      // Error handling (unchanged)
+      console.error('Error sending message:', error);
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to send message. Please try again.',
+        color: 'red',
+      });
     } finally {
       setSending(false);
     }
@@ -774,8 +790,18 @@ const handleManageSubscription = () => {
                     >
                       {msg.user_id === currentUserId 
                         ? <Text size="sm">{msg.content}</Text>
-                        : <Markdown>{msg.content}</Markdown>}
-                      
+                        : <>
+                        {!doneTyping ? (
+                          <Typewriter
+                            words={[msg.content]} 
+                            typeSpeed={10}
+                            onLoopDone={() => setDoneTyping(true)}
+                            loop 
+                          />
+                        ) : (
+                          <Markdown>{msg.content}</Markdown> 
+                        )}
+                      </>}
                     </Paper>
                   </Group>
                 ))
