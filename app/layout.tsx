@@ -1,11 +1,11 @@
 import '@mantine/core/styles.css';
 import { ColorSchemeScript, MantineProvider } from '@mantine/core';
-import { Amatic_SC } from 'next/font/google';
+import { Shadows_Into_Light_Two } from 'next/font/google';
 
-const amatic_sc = Amatic_SC({ weight: '700', subsets: ['latin'] });
+const shadows_Into_Light_Two = Shadows_Into_Light_Two({ weight: '400', subsets: ['latin'] });
 
 export const metadata = {
-  title: 'Dream Net',
+  title: 'Dream-San',
   description: 'Specialized AI for Dream Interpretation.',
 };
 
@@ -20,7 +20,7 @@ export default function RootLayout({
         <ColorSchemeScript />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body className={amatic_sc.className}>
+      <body className={shadows_Into_Light_Two.className}>
         <MantineProvider
           theme={{
             fontSizes: {

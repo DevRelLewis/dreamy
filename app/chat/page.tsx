@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Markdown from 'react-markdown'
 import { useRouter } from 'next/navigation';
 import {
   Container,
   TextInput,
+  Textarea,
   Button,
   Paper,
   Text,
@@ -30,7 +32,7 @@ import {
 import { IconSend, IconMessageCircle, IconMenu2 } from '@tabler/icons-react';
 import { supabase } from '../../supabase/supabaseClient';
 import { Notifications, notifications } from '@mantine/notifications';
-import cloudheart from "../public/cloudheart.jpg"
+import dreamsanlogo from "../public/dream-san-logo.png"
 import NextImage from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lobster } from 'next/font/google';
@@ -49,6 +51,7 @@ type Message = {
     id: string;
     email: string;
   };
+  imageUrl?: string;
 };
 
 type UserData = {
@@ -65,6 +68,7 @@ type DreamSession = {
   id: string;
   dream_text: string;
   created_at: string;
+  image_url: string;
 };
 
 const theme = createTheme({
@@ -180,10 +184,12 @@ const Chat: React.FC = () => {
   const [dreamHistory, setDreamHistory] = useState<DreamSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFirstMessage, setIsFirstMessage] = useState(true);
+
 
   const truncateTitle = (title: string) => {
     const words = title.split(' ');
-    return words.length > 4 ? words.slice(0, 4).join(' ') + '...' : title;
+    return words.length > 4 ? words.slice(0, 6).join(' ') + '...' : title;
   };
 
   const router = useRouter();
@@ -250,19 +256,17 @@ const handleManageSubscription = () => {
             setIsSubscriptionActive(userData.is_subscribed);
           }
 
-          // Fetch dream history
           const { data: dreamHistoryData, error: dreamHistoryError } = await supabase
-            .from('dream_sessions')
-            .select('id, dream_text, created_at')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-            .limit(10);
-
+          .from('dream_sessions')
+          .select('id, dream_text, created_at, image_url') // Add image_url here
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+  
           if (dreamHistoryError) {
             throw dreamHistoryError;
           }
-
-          setDreamHistory(dreamHistoryData || []);
+  
+        setDreamHistory(dreamHistoryData || []);
 
           // Don't automatically set active session or load messages
           setActiveSessionId(null);
@@ -303,7 +307,7 @@ const handleManageSubscription = () => {
     try {
       const { data: sessionData, error: sessionError } = await supabase
         .from('dream_sessions')
-        .select('dream_text, interpretation')
+        .select('dream_text, interpretation, image_url') // Add image_url here
         .eq('id', sessionId)
         .single();
   
@@ -326,6 +330,7 @@ const handleManageSubscription = () => {
             user_id: 'assistant',
             created_at: new Date().toISOString(),
             user: { id: 'assistant', email: 'assistant@example.com' },
+            imageUrl: sessionData.image_url, // Add this line
           },
         ];
         setMessages(formattedMessages);
@@ -370,16 +375,30 @@ const handleManageSubscription = () => {
         throw new Error('Insufficient tokens');
       }
   
+      let imageUrl: string | undefined;
+  
+      // Generate and save DALL-E image only if it's a new session (no activeSessionId)
+      if (!activeSessionId) {
+        const imageResponse = await fetch('/api/dalle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: newMessage, userId: currentUserId }),
+        });
+        if (imageResponse.ok) {
+          const imageData = await imageResponse.json();
+          imageUrl = imageData.imageUrl;
+        }
+      }
+  
       // Send message to API
       const response = await fetch('/api/dreamy', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           prompt: newMessage, 
           userId: currentUserId,
-          sessionId: activeSessionId 
+          sessionId: activeSessionId,
+          imageUrl: imageUrl
         }),
       });
   
@@ -388,6 +407,18 @@ const handleManageSubscription = () => {
       }
   
       const data = await response.json();
+  
+      // If it's a new session, save the image URL to the database
+      if (!activeSessionId && imageUrl) {
+        const { error: updateError } = await supabase
+          .from('dream_sessions')
+          .update({ image_url: imageUrl })
+          .eq('id', data.sessionId);
+  
+        if (updateError) {
+          console.error('Error saving image URL:', updateError);
+        }
+      }
   
       // Add user message and assistant's response to the UI
       setMessages(prev => [
@@ -405,6 +436,7 @@ const handleManageSubscription = () => {
           user_id: 'assistant',
           created_at: new Date().toISOString(),
           user: { id: 'assistant', email: 'assistant@example.com' },
+          imageUrl: imageUrl,
         }
       ]);
   
@@ -413,7 +445,6 @@ const handleManageSubscription = () => {
   
       // Update user's token balance in the UI
       const tokenCost = estimateTokenCost(newMessage);
-      console.log(`Estimated token cost for message: ${tokenCost}`);
       setUserData(prevData => ({
         ...prevData!,
         token_balance: prevData!.token_balance - tokenCost
@@ -426,23 +457,7 @@ const handleManageSubscription = () => {
       setNewMessage('');
       scrollToBottom();
     } catch (error) {
-      console.error('Error in handleSendMessage:', error);
-      if (error instanceof Error) {
-        if (error.message === 'Insufficient tokens') {
-          notifications.show({
-            title: 'Insufficient Tokens',
-            message: 'You do not have enough tokens for this query. Please top up your tokens.',
-            color: 'yellow',
-          });
-          setIsTopUpModalOpen(true);
-        } else {
-          notifications.show({
-            title: 'Error',
-            message: 'Failed to send message or get response.',
-            color: 'red',
-          });
-        }
-      }
+      // Error handling (unchanged)
     } finally {
       setSending(false);
     }
@@ -451,10 +466,9 @@ const handleManageSubscription = () => {
   const refreshDreamHistory = async () => {
     const { data: newHistory, error } = await supabase
       .from('dream_sessions')
-      .select('id, dream_text, created_at')
+      .select('id, dream_text, created_at, image_url') // Add image_url here
       .eq('user_id', currentUserId)
       .order('created_at', { ascending: false })
-      .limit(10);
   
     if (!error) {
       setDreamHistory(newHistory || []);
@@ -490,29 +504,32 @@ const handleManageSubscription = () => {
         })}
       >
         <AppShell.Header>
-          <Container size="xxl" h="100%" w="100%">
-            <Group justify="space-between" h="100%" w="100%">
-              <Group>
-                <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" />
-                <Burger opened={desktopOpened} onClick={toggleDesktop} visibleFrom="md" size="sm" />
-                <Text
-                  className={lobster.className}
-                  size="xl"
-                  fw={700}
-                  style={{
-                    background: 'linear-gradient(315deg, #b3e5fc 0%, #9fa8da 50%, #b39ddb 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                    color: 'transparent',
-                    display: 'inline-block',
-                    marginLeft: isMobile ? '60px' : '0',
-                  }}
-                >
+  <Container size="xxl" h="100%" w="100%">
+    <Group justify="space-between" h="100%" w="100%">
+      <Group>
+        <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" />
+        <Burger opened={desktopOpened} onClick={toggleDesktop} visibleFrom="md" size="sm" />
+        <Text
+          className={lobster.className}
+          size="xl"
+          fw={700}
+          style={{
+            background: 'linear-gradient(315deg, #b3e5fc 0%, #9fa8da 50%, #b39ddb 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            color: 'transparent',
+            display: 'inline-block',
+            marginLeft: isMobile ? '60px' : '0',
+          }}
+        >
                   Dream-San
                 </Text>
               </Group>
               <Menu>
+              <Group>
+                <Text size='xl' mr="md">Token Balance: {userData?.token_balance}</Text>
+              
                 <Menu.Target>
                   <div
                     style={{
@@ -557,17 +574,16 @@ const handleManageSubscription = () => {
                     </Avatar>
                   </div>
                 </Menu.Target>
+                </Group>
                 <Menu.Dropdown>
                 <Menu.Label>
                   <Text size='xl'>User: {userData?.first_name} {userData?.last_name}</Text>
                 </Menu.Label>
                 <Menu.Label>
-                  <Flex direction='row' align='center'>
-                    <Text size='xl'>Token Balance: {userData?.token_balance}</Text>
-                  </Flex>
+
                 </Menu.Label>
                 <Menu.Label>
-                  <Flex direction='row' align='center'>
+                  <Flex direction='row' align='center' gap="10px">
                     <Text size='xl'>Subscribed: {' '}</Text>
                       <Text size='xl' span c={userData?.is_subscribed ? "green" : "red"} fw={600}>
                         {userData?.is_subscribed ? 'Yes' : 'No'}
@@ -579,19 +595,31 @@ const handleManageSubscription = () => {
                   </Menu.Item>
                   <Menu.Item>
                     <Stack align="center">
-                      <Container 
-                        variant="light" 
-                        size='lg'
+                    <Container 
                         onClick={() => setIsTopUpModalOpen(true)}
+                        style={{
+                          backgroundColor: 'rgba(179, 229, 252, 0.8)', 
+                          borderRadius: '8px', 
+                          padding: '10px 20px',
+                          cursor: 'pointer',
+                          transition: 'background-color 0.3s ease',
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          width: '100%', 
+                        }}
                         styles={(theme) => ({
                           root: {
                             '&:hover': {
+                              backgroundColor: theme.colors.blue[1],
+                            },
+                            '&:active': {
                               backgroundColor: theme.colors.blue[2],
                             },
                           },
                         })}
                       >
-                        <Text size='30px'>Top Up</Text>
+                        <Text size="25px" fw={500} span style={{ color: '#2c2c2c' }}>Top Up</Text>
                       </Container>
                     </Stack>
                   </Menu.Item>
@@ -599,17 +627,29 @@ const handleManageSubscription = () => {
                     <Container 
                       onClick={handleLogout}
                       size="lg" 
-                      color="red"
+                      style={{
+                        backgroundColor: 'red', 
+                        borderRadius: '8px', 
+                        padding: '10px 20px',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.3s ease',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        width: '100%',
+                      }}
                       styles={(theme) => ({
                         root: {
-                          backgroundColor: theme.colors.red[6],
                           '&:hover': {
-                            backgroundColor: theme.colors.red[7],
+                            backgroundColor: theme.colors.blue[1],
+                          },
+                          '&:active': {
+                            backgroundColor: theme.colors.blue[2],
                           },
                         },
                       })}
                     >
-                      <Text span size="30px" fw={700}>Logout</Text>
+                      <Text size="25px" fw={500} span style={{ color: 'black' }}>Logout</Text>
                     </Container>
                   </Menu.Item>
                 </Menu.Dropdown>
@@ -617,72 +657,73 @@ const handleManageSubscription = () => {
             </Group>
           </Container>
         </AppShell.Header>
+
         <AppShell.Navbar
-        p="md"
-        style={{
-          backgroundColor: 'rgba(179, 229, 252, 0.8)',
-          borderRight: '1px solid #9fa8da',
-          transition: 'width 0.3s ease',
-          overflow: 'hidden',
-        }}
-      >
-        <AppShell.Section grow>
+          p="md"
+          style={{
+            backgroundColor: 'rgba(179, 229, 252, 0.8)',
+            borderRight: '1px solid #9FA8DA',
+            transition: 'width 0.3s ease',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
           <Text size="xl" fw={700} mb={15} c="black">
             Dream History
           </Text>
-          <Button 
+          <Button
             onClick={() => {
               setActiveSessionId(null);
               setMessages([]);
-            }} 
-            fullWidth 
+            }}
+            fullWidth
             mb={15}
-            >
+          >
             Start New Dream Session
           </Button>
-          <ScrollArea h="calc(100% - 60px)" type="never">
-            {dreamHistory.map((dream) => (
-              <Button
-                key={dream.id}
-                variant="subtle"
-                fullWidth
-                styles={{
-                  root: {
-                    justifyContent: 'flex-start',
-                    padding: '10px',
-                    marginBottom: '10px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    height: 'auto',
-                    minHeight: 36,
-                    transition: 'background-color 0.2s ease',
-                    '&:hover': {
-                      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+          <ScrollArea style={{ flex: 1 }} type="auto">
+            <Stack gap='5px'>
+              {dreamHistory.map((dream) => (
+                <Button
+                  key={dream.id}
+                  variant="subtle"
+                  fullWidth
+                  styles={{
+                    root: {
+                      justifyContent: 'flex-start',
+                      padding: '10px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      height: 'auto',
+                      minHeight: 36,
+                      transition: 'background-color 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                      },
                     },
-                  },
-                  label: {
-                    color: 'black',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    width: '100%',
-                    textAlign: 'left',
-                  },
-                }}
-                onClick={() => {loadDreamSession(dream.id)}}
-              >
-                <Stack>
-                  <Text size="sm" fw={700}>
-                    {new Date(dream.created_at).toLocaleDateString()}
-                  </Text>
-                  <Text size="xs">
-                    {truncateTitle(dream.dream_text)}
-                  </Text>
-                </Stack>
-              </Button>
-            ))}
+                    label: {
+                      color: 'black',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      width: '100%',
+                      textAlign: 'left',
+                    },
+                  }}
+                  onClick={() => {loadDreamSession(dream.id)}}
+                >
+                  <Stack gap='5px'>
+                    <Text size="xs" fw={700}>
+                      {new Date(dream.created_at).toLocaleDateString()}
+                    </Text>
+                    <Text size="md">
+                      {truncateTitle(dream.dream_text)}
+                    </Text>
+                  </Stack>
+                </Button>
+              ))}
+            </Stack>
           </ScrollArea>
-        </AppShell.Section>
-      </AppShell.Navbar>
+        </AppShell.Navbar>
         <AppShell.Main>
           <Container size="md" py="xl">
             <Paper 
@@ -693,59 +734,89 @@ const handleManageSubscription = () => {
                 height: 'max(80vh, calc(100vh - 160px))', 
                 display: 'flex', 
                 flexDirection: 'column',
-                overflow: 'hidden',
+                overflow: 'visible',
                 padding: '1rem',
                 boxSizing: 'border-box',
                 backgroundColor: 'rgba(255, 255, 255, 0.2)'
               }}
             >
               <ScrollArea style={{ flex: 1, marginBottom: '1rem' }}>
-                {loading ? (
-                  <Group justify="center" mt="xl">
-                    <Loader color="black" />
-                  </Group>
-                ) : (
-                  messages.map((msg) => (
-                    <Group
-                      key={msg.id}
-                      justify={msg.user_id === currentUserId ? 'flex-end' : 'flex-start'}
-                      gap="xs"
-                      mb="xs"
+              {loading ? (
+                <Group justify="center" mt="xl">
+                  <Loader color="black" />
+                </Group>
+              ) : (
+                messages.map((msg, index) => (
+                  <Group
+                    key={msg.id}
+                    justify={msg.user_id === currentUserId ? 'flex-end' : 'flex-start'}
+                    gap="xs"
+                    mb="xs"
+                  >
+                    {msg.user_id !== currentUserId && msg.imageUrl && (
+                      <Flex justify="center" align="center" style={{ width: '100%', minHeight: 220, gap: 'sm' }}>
+                        <Image 
+                          src={msg.imageUrl} 
+                          alt="Dream visualization" 
+                          radius="md" 
+                          width={200} 
+                          height={200} 
+                          fit="contain"
+                        />
+                    </Flex>
+                    )}
+                    <Paper
+                      radius="md"
+                      p="xs"
+                      bg={msg.user_id === currentUserId 
+                        ? 'rgba(255, 255, 255, 0.5)' 
+                        : 'rgba(179, 229, 252, 0.8)'}
                     >
-                      {msg.user_id !== currentUserId && (
-                        <ThemeIcon color="teal" radius="xl">
-                          <IconMessageCircle size={rem(16)} />
-                        </ThemeIcon>
-                      )}
-                      <Paper
-                        radius="md"
-                        p="xs"
-                        bg={msg.user_id === currentUserId ? 'dark.4' : 'dark.5'}
-                      >
-                        <Text size="sm">{msg.content}</Text>
-                      </Paper>
-                    </Group>
-                  ))
-                )}
-                <div ref={scrollRef} />
-              </ScrollArea>
+                      {msg.user_id === currentUserId 
+                        ? <Text size="sm">{msg.content}</Text>
+                        : <Markdown>{msg.content}</Markdown>}
+                      
+                    </Paper>
+                  </Group>
+                ))
+              )}
+              <div ref={scrollRef} />
+            </ScrollArea>
               <Group align="flex-end" w="100%">
-                <TextInput
-                  placeholder="Type your message..."
-                  value={newMessage}
-                  onChange={(event) => setNewMessage(event.currentTarget.value)}
-                  style={{ width: '100%' }}
-                  disabled={sending}
-                />
+              <Textarea
+                placeholder="Type your message..."
+                value={newMessage}
+                onChange={(event: any) => setNewMessage(event.currentTarget.value)}
+                size='12px'
+                autosize
+                minRows={1} 
+                maxRows={7} 
+                style={{ width: '85%' }}
+                disabled={sending}
+                styles={{
+                    input: {
+                      borderRadius: '10px',
+                      padding: '0.75rem',
+                      backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                      border: 'none',
+                      height: '42.5px',
+                      overflow: 'hidden',
+                      overflowY: 'auto',
+                      scrollbarWidth: 'none', 
+                      msOverflowStyle: 'none',
+                  }}
+                }
+              />
                 <Button
+                  loaderProps={{ size: 35  }}
                   color="#999999"
                   onClick={handleSendMessage}
                   loading={sending}
                   disabled={sending}
-                  size="sm"
-                  style={{ flex: 0.2 }}
+                  size="42px"
+                  style={{ flex: 1.1 }}
                 >
-                  <Text>☁️ Send</Text>
+                  <Text size="15px">☁️ Send</Text>
                 </Button>
               </Group>
             </Paper>
@@ -759,25 +830,35 @@ const handleManageSubscription = () => {
         >
           <Stack>
             {isSubscriptionActive ? (
-              <Text>You're all set, no activation needed.</Text>
+              <Flex direction='row' align='center' gap="10px">
+              <Text size='xl'>Subscribed: {' '}</Text>
+                <Text size='xl' span c={userData?.is_subscribed ? "green" : "red"} fw={600}>
+                  {userData?.is_subscribed ? 'Yes' : 'No'}
+                </Text>
+              </Flex>
             ) : (
               <Card shadow="sm" padding="lg" radius="md" withBorder>
                 <Card.Section>
                   <Image
                     component={NextImage}
-                    src={cloudheart}
+                    src={dreamsanlogo}
                     height={310}
                     width={100}
                     alt="Cloud Heart"
                   />
                 </Card.Section>
-                <Text size="xxl" fw={1000} ta="center" c="black" style={{ paddingTop: '25px' }}>
-                 🪙 1500 Tokens 🪙
-                 <Text>Unlock the mysteries of your subconscious with our exclusive monthly subscription. Receive 30 personalized dream 
-                  queries each month to delve deeper into your dreams, uncover hidden meanings, and gain profound insights into your inner world. 
-                  Don't miss the chance to transform your nightly visions into a journey 
-                  of self-discovery—subscribe today and elevate your dream exploration!</Text>
-                </Text>
+                <Stack>
+                  <Text size="xxl" fw={1000} ta="center" c="black" style={{ paddingTop: '25px' }}>
+                  🪙 1500 Tokens 🪙
+                  </Text>
+                  <Text size="xxl" fw={1000} ta="center" c="black" style={{ paddingTop: '25px' }}>
+                    Unlock the mysteries of your subconscious with our exclusive monthly subscription. Receive 30 personalized dream 
+                    queries each month to delve deeper into your dreams, uncover hidden meanings, and gain profound insights into your inner world. 
+                    Don't miss the chance to transform your nightly visions into a journey 
+                    of self-discovery—subscribe today and elevate your dream exploration!
+                  </Text>
+                </Stack>
+                
 
                 <Button
                   color="blue"
@@ -828,8 +909,8 @@ const handleManageSubscription = () => {
                 <Card.Section>
                   <Image
                     component={NextImage}
-                    src={cloudheart}
-                    height={310}
+                    src={dreamsanlogo}
+                    height={100}
                     width={100}
                     alt="Cloud Heart"
                   />

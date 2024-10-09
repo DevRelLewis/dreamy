@@ -2,21 +2,25 @@
 import React, { useState } from 'react';
 import {
   Button,
-  TextInput,
+  Box,
   PasswordInput,
   Paper,
   Text,
   Group,
-  Stack,
+  Flex,
   Alert,
   Center,
   Container,
   useMantineTheme,
+  Image,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../supabase/supabaseClient';
 import { useMediaQuery } from '@mantine/hooks';
+import dreamsanbg from '../../app/public/dream-san-bg-t.png'
+import google from '../../app/public/google.png'
+import NextImage from 'next/image'
 
 type AuthMode = 'signIn' | 'signUp';
 
@@ -106,11 +110,41 @@ const AuthForm: React.FC = () => {
   };
 
   return (
-    <Center h="100vh" p={isMobile ? 'xs' : 'md'}>
+    <Center 
+      h="100vh" 
+      p={isMobile ? 'xs' : 'lg'} 
+      style={{
+        overflow: 'hidden',
+        background: 'linear-gradient(135deg, #ffd54f 0%, #ff8a65 25%, #7e57c2 50%, #5c6bc0 75%, #42a5f5 100%)'
+      }}
+    >
+      <Box
+        style={{
+          marginLeft: -20,
+          width: '50vw', 
+          height: '100vh', 
+          display: 'flex',
+          justifyContent: 'flex-start', 
+          alignItems: 'flex-start', 
+        }}
+      >
+      <Image
+        component={NextImage}
+        h='100vh'
+        width={600}
+        src={dreamsanbg}
+        alt="dreamsanbg"
+        style={{
+          margin: 0,
+          padding: 0,
+          display: 'block', 
+        }}
+      />
+    </Box>
       <Container size={isMobile ? '100%' : 'xs'} p={0}>
-        <Paper radius="md" p={isMobile ? 'sm' : 'xl'} withBorder>
-          <Text size={isMobile ? 'md' : 'lg'} fw={500} ta="center" mb="md">
-            {authMode === 'signIn' ? 'Welcome Back!' : 'Create an Account'}
+        <Paper radius="md" p={isMobile ? 'sm' : 'xl'} bg="rgba(179, 229, 252, 0.8)">
+          <Text size={isMobile ? 'md' : '35px'} fw={500} ta="center" mb="md">
+            {authMode === 'signIn' ? 'Welcome to Dream-San!' : 'Create an Account'}
           </Text>
 
           {error && (
@@ -119,52 +153,27 @@ const AuthForm: React.FC = () => {
             </Alert>
           )}
 
-          <form onSubmit={handleAuth}>
-            <Stack gap="sm">
-              <TextInput
-                label="Email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.currentTarget.value)}
-                required
-              />
-              <PasswordInput
-                label="Password"
-                placeholder="Your password"
-                value={password}
-                onChange={(e) => setPassword(e.currentTarget.value)}
-                required
-              />
-              <Button type="submit" fullWidth loading={loading} color="teal">
-                {authMode === 'signIn' ? 'Sign In' : 'Sign Up'}
-              </Button>
-            </Stack>
-          </form>
-
-          <Group justify="space-between" mt="md">
-            <Text size="sm">
-              {authMode === 'signIn'
-                ? "Don't have an account?"
-                : 'Already have an account?'}
-            </Text>
-            <Button
-              variant="subtle"
-              onClick={toggleAuthMode}
-              size="xs"
-              color="teal"
-            >
-              {authMode === 'signIn' ? 'Sign Up' : 'Sign In'}
-            </Button>
-          </Group>
-
           <Button
             variant="outline"
-            color="gray"
+            color="black"
+            radius={24}
             fullWidth
             mt="md"
+            size="lg"
+            bg='#d1c4e9'
             onClick={handleGoogleSignIn}
           >
-            Continue with Google
+            <Flex direction='row' gap={10} align='center'>
+            <Image
+              component={NextImage}
+              h={25}
+              w={25}
+              src={google}
+              alt="Random unsplash image"
+            />
+              <Text size="30px" >Continue with Google</Text>
+            </Flex>
+            
           </Button>
         </Paper>
       </Container>
