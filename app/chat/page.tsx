@@ -39,7 +39,6 @@ import { Lobster } from 'next/font/google';
 import { useMediaQuery, useDisclosure } from '@mantine/hooks';
 import { processTokenTransaction } from '../../components/token system/TokenSystem';
 import { hasEnoughTokens, estimateTokenCost } from '../../components/utils/tokenUtils/TokenUtility';
-import { Typewriter } from 'react-simple-typewriter';
 
 const lobster = Lobster({ weight: '400', subsets: ['latin'] })
 
@@ -186,7 +185,6 @@ const Chat: React.FC = () => {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFirstMessage, setIsFirstMessage] = useState(true);
-  const [doneTyping, setDoneTyping] = useState(false);
 
 
   const truncateTitle = (title: string) => {
@@ -790,18 +788,8 @@ const handleManageSubscription = () => {
                     >
                       {msg.user_id === currentUserId 
                         ? <Text size="sm">{msg.content}</Text>
-                        : <>
-                        {!doneTyping ? (
-                          <Typewriter
-                            words={[msg.content]} 
-                            typeSpeed={10}
-                            onLoopDone={() => setDoneTyping(true)}
-                            loop 
-                          />
-                        ) : (
-                          <Markdown>{msg.content}</Markdown> 
-                        )}
-                      </>}
+                        : <Markdown>{msg.content}</Markdown>}
+                      
                     </Paper>
                   </Group>
                 ))
