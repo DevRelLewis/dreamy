@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Markdown from 'react-markdown'
+import DisclaimerModal from '../../components/disclaimer/dislaimer'; 
 import { useRouter } from 'next/navigation';
 import {
   Container,
@@ -18,7 +19,6 @@ import {
   MantineProvider,
   AppShell,
   Avatar,
-  rem,
   createTheme,
   Menu,
   Stack,
@@ -189,6 +189,7 @@ const Chat: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isFirstMessage, setIsFirstMessage] = useState(true);
   const isTablet = useMediaQuery('(max-width: 1024px) and (max-height: 790px)');
+  const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(true);
 
 
   const truncateTitle = (title: string) => {
@@ -241,70 +242,86 @@ const handleManageSubscription = () => {
   }
 };
 
-  useEffect(() => {
-    const fetchUserAndData = async () => {
-      setLoading(true);
-      
-      try {
-        // Get the current authenticated user
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-          setCurrentUserId(user.id);
-          
-          // Check if user exists in the users table or create a new entry
-          const userData = await checkOrCreateUser(user);
-          if (userData) {
-            setUserData(userData);
-            // Set the subscription status based on the is_subscribed field
-            setIsSubscriptionActive(userData.is_subscribed);
-          }
+useEffect(() => {
+  const fetchUserAndData = async () => {
+    setLoading(true);
+    
+    try {
+      // Check if the user has seen the disclaimer before
+      const handleDisclaimerClose = () => {
+        setIsDisclaimerOpen(false);
+        localStorage.setItem('hasSeenDisclaimer', 'true');
+      };
 
-          const { data: dreamHistoryData, error: dreamHistoryError } = await supabase
+      // Get the current authenticated user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        setCurrentUserId(user.id);
+        
+        // Check if user exists in the users table or create a new entry
+        const userData = await checkOrCreateUser(user);
+        if (userData) {
+          setUserData(userData);
+          // Set the subscription status based on the is_subscribed field
+          setIsSubscriptionActive(userData.is_subscribed);
+        }
+
+        const { data: dreamHistoryData, error: dreamHistoryError } = await supabase
           .from('dream_sessions')
-          .select('id, dream_text, created_at, image_url') // Add image_url here
+          .select('id, dream_text, created_at, image_url')
           .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-  
-          if (dreamHistoryError) {
-            throw dreamHistoryError;
-          }
-  
+          .order('created_at', { ascending: false });
+
+        if (dreamHistoryError) {
+          throw dreamHistoryError;
+        }
+
         setDreamHistory(dreamHistoryData || []);
 
-          // Don't automatically set active session or load messages
-          setActiveSessionId(null);
-          setMessages([]);
+        // Don't automatically set active session or load messages
+        setActiveSessionId(null);
+        setMessages([]);
 
-        } else {
-          // Handle case where there is no authenticated user
-          console.log('No authenticated user found');
-          setCurrentUserId(null);
-          setUserData(null);
-          setIsSubscriptionActive(false);
-          setMessages([]);
-          setDreamHistory([]);
-          setActiveSessionId(null);
-        }
-      } catch (error) {
-        console.error('Error fetching user data and history:', error);
-        notifications.show({
-          title: 'Error',
-          message: 'Failed to load user data and dream history.',
-          color: 'red',
-        });
-      } finally {
-        setLoading(false);
+      } else {
+        // Handle case where there is no authenticated user
+        console.log('No authenticated user found');
+        setCurrentUserId(null);
+        setUserData(null);
+        setIsSubscriptionActive(false);
+        setMessages([]);
+        setDreamHistory([]);
+        setActiveSessionId(null);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching user data and history:', error);
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to load user data and dream history.',
+        color: 'red',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchUserAndData();
+  fetchUserAndData();
 
-    // Cleanup function
-    return () => {
-      // No cleanup needed in this case
-    };
-  }, []);
+  // Cleanup function
+  return () => {
+    // No cleanup needed in this case
+  };
+}, []);
+
+useEffect(() => {
+  scrollToBottom();
+}, [messages]);
+
+const handleDisclaimerClose = () => {
+  setIsDisclaimerOpen(false);
+  localStorage.setItem('hasSeenDisclaimer', 'true');
+};
+
 
   const loadDreamSession = async (sessionId: string) => {
     setLoading(true);
@@ -850,6 +867,7 @@ const handleManageSubscription = () => {
 
         <AppShell.Main>
           <Container  size="md" py="xl">
+          <DisclaimerModal opened={isDisclaimerOpen} onClose={handleDisclaimerClose} />
             <Paper 
               shadow="lg" 
               radius="md" 
