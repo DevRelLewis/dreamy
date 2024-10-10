@@ -40,6 +40,7 @@ import { Lobster } from 'next/font/google';
 import { useMediaQuery, useDisclosure } from '@mantine/hooks';
 import { processTokenTransaction } from '../../components/token system/TokenSystem';
 import { hasEnoughTokens, estimateTokenCost } from '../../components/utils/tokenUtils/TokenUtility';
+import classes from './page.module.css'
 
 const lobster = Lobster({ weight: '400', subsets: ['latin'] })
 
@@ -848,11 +849,12 @@ const handleManageSubscription = () => {
         </AppShell.Navbar>
 
         <AppShell.Main>
-          <Container size="md" py="xl">
+          <Container  size="md" py="xl">
             <Paper 
               shadow="lg" 
               radius="md" 
               p="md" 
+              className="custom-scrollbar"
               style={{ 
                 height: 'max(80vh, calc(100vh - 160px))', 
                 display: 'flex', 
@@ -862,8 +864,9 @@ const handleManageSubscription = () => {
                 boxSizing: 'border-box',
                 backgroundColor: 'rgba(255, 255, 255, 0.2)'
               }}
+  
             >
-              <ScrollArea style={{ flex: 1, marginBottom: '1rem' }}>
+              <ScrollArea type="always" offsetScrollbars classNames={classes} style={{ flex: 1, marginBottom: '1rem', backgroundColor: "transparent" }}>
                 {loading ? (
                   <Group justify="center" mt="xl">
                     <Loader color="black" />
