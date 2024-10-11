@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Text, Stack, Button, ScrollArea, Group, Loader, Flex, Image, Paper } from '@mantine/core';
-import styles from './DisclaimerModal.module.css';
+import styles from './disclaimermodal.module.css';
 
 interface DisclaimerModalProps {
   opened: boolean;
