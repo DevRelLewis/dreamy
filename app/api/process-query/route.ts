@@ -1,7 +1,7 @@
 // app/api/process-query/route.ts
 import { NextResponse } from 'next/server';
 import { processTokenTransaction } from '@/components/token system/TokenSystem';
-import { hasEnoughTokens } from '@/components/utils/token utils/TokenUtility';
+import { hasEnoughTokens } from '@/components/utils/tokenUtils/TokenUtility';
 import { createClient } from '@supabase/supabase-js';
 import { User } from '@/components/utils/tokenUtils/types';
 
