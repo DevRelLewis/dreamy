@@ -3,10 +3,8 @@ import React, { useState } from 'react';
 import {
   Button,
   Box,
-  PasswordInput,
   Paper,
   Text,
-  Group,
   Flex,
   Alert,
   Center,
@@ -18,7 +16,7 @@ import { notifications } from '@mantine/notifications';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../supabase/supabaseClient';
 import { useMediaQuery } from '@mantine/hooks';
-import dreamsanbg from '../../app/public/dream-san-bg-t.png'
+import dreamsanbg from '../../app/public/dream-san-bg-t-2.png'
 import google from '../../app/public/google.png'
 import NextImage from 'next/image'
 
@@ -33,7 +31,8 @@ const AuthForm: React.FC = () => {
 
   const router = useRouter();
   const theme = useMantineTheme();
-  const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
+  const isMobileOrTablet = useMediaQuery('(max-width: 1024px)');
+  const isNarrowMobile = useMediaQuery('(max-width: 320px)');
 
   const toggleAuthMode = () => {
     setAuthMode(authMode === 'signIn' ? 'signUp' : 'signIn');
@@ -112,40 +111,49 @@ const AuthForm: React.FC = () => {
   return (
     <Center 
       h="100vh" 
-      p={isMobile ? 'xs' : 'lg'} 
+      p={isMobileOrTablet ? 'xs' : 'lg'} 
       style={{
         overflow: 'hidden',
         background: 'linear-gradient(135deg, #ffd54f 0%, #ff8a65 25%, #7e57c2 50%, #5c6bc0 75%, #42a5f5 100%)'
       }}
     >
-      <Box
+      {!isMobileOrTablet && (
+        <Box
+          style={{
+            marginLeft: -20,
+            width: '50vw', 
+            height: '100vh', 
+            display: 'flex',
+            justifyContent: 'flex-start', 
+            alignItems: 'flex-start',
+          }}
+        >
+          <Image
+            component={NextImage}
+            h='100vh'
+            width={1200}
+            src={dreamsanbg}
+            alt="dreamsanbg"
+            style={{
+              margin: 0,
+              padding: 0,
+              display: 'block', 
+            }}
+          />
+        </Box>
+      )}
+      <Container 
+        size={isMobileOrTablet ? '100%' : 'xs'} 
+        p={0}
         style={{
-          marginLeft: -20,
-          width: '50vw', 
-          height: '100vh', 
-          display: 'flex',
-          justifyContent: 'flex-start', 
-          alignItems: 'flex-start', 
+          width: isMobileOrTablet ? '100%' : '50%',
         }}
       >
-      <Image
-        component={NextImage}
-        h='100vh'
-        width={1200}
-        src={dreamsanbg}
-        alt="dreamsanbg"
-        style={{
-          margin: 0,
-          padding: 0,
-          display: 'block', 
-        }}
-      />
-    </Box>
-      <Container size={isMobile ? '100%' : 'xs'} p={0}>
-        <Paper radius="md" p={isMobile ? 'sm' : 'xl'} bg="rgba(179, 229, 252, 0.8)">
-          <Text size={isMobile ? 'md' : '35px'} fw={500} ta="center" mb="md">
-            {authMode === 'signIn' ? 'Welcome to Dream-San!' : 'Create an Account'}
+        <Paper radius="md" p={isMobileOrTablet ? 'sm' : 'xl'} bg="rgba(179, 229, 252, 0.8)">
+          <Text size={isMobileOrTablet ? (isNarrowMobile ? 'sm' : 'md') : '35px'} fw={500} ta="center" mb="md">
+            {authMode === 'signIn' ? 'Welcome to Dream-San' : 'Create an Account'}
           </Text>
+          <Text size={isMobileOrTablet ? (isNarrowMobile ? 'xs' : 'sm') : '25px'} fw={500} ta="center" mb="md">Your AI Dream Interpreter</Text>
 
           {error && (
             <Alert title="Error" color="red" mb="md">
@@ -159,21 +167,22 @@ const AuthForm: React.FC = () => {
             radius={24}
             fullWidth
             mt="md"
-            size="lg"
+            size={isMobileOrTablet ? 'sm' : 'lg'}
             bg='#d1c4e9'
             onClick={handleGoogleSignIn}
           >
             <Flex direction='row' gap={10} align='center'>
-            <Image
-              component={NextImage}
-              h={25}
-              w={25}
-              src={google}
-              alt="Random unsplash image"
-            />
-              <Text size="30px" >Continue with Google</Text>
+              <Image
+                component={NextImage}
+                h={isMobileOrTablet ? 25 : 30}
+                w={isMobileOrTablet ? 25 : 30}
+                src={google}
+                alt="Google logo"
+              />
+              <Text size={isMobileOrTablet ? (isNarrowMobile ? 'md' : 'lg') : '40px'}>
+                Continue with Google
+              </Text>
             </Flex>
-            
           </Button>
         </Paper>
       </Container>
