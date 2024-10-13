@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
       throw new Error(`Failed to fetch subscribed users: ${fetchError.message}`);
     }
 
-    // Update token balance for each subscribed user
+    // update token balance for each subscribed user
     const updatePromises = subscribedUsers.map(user => 
       supabase
         .from('users')
