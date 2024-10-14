@@ -18,6 +18,8 @@ import { supabase } from '../../supabase/supabaseClient';
 import { useMediaQuery } from '@mantine/hooks';
 import dreamsanbg from '../../app/public/dream-san-bg-t-2.png'
 import google from '../../app/public/google.png'
+import apple from "../../app/public/apple.png"
+import twitter from "../../app/public/twitter.png"
 import NextImage from 'next/image'
 
 type AuthMode = 'signIn' | 'signUp';
@@ -108,6 +110,44 @@ const AuthForm: React.FC = () => {
     }
   };
 
+  const handleAppleSignIn = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: `${window.location.origin}/chat`,
+        },
+      });
+
+      if (error) throw error;
+    } catch (err: any) {
+      notifications.show({
+        title: 'Apple Sign In Error',
+        message: err.message,
+        color: 'red',
+      });
+    }
+  };
+
+  const handleXSignIn = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'twitter',
+        options: {
+          redirectTo: `${window.location.origin}/chat`,
+        },
+      });
+
+      if (error) throw error;
+    } catch (err: any) {
+      notifications.show({
+        title: 'X Sign In Error',
+        message: err.message,
+        color: 'red',
+      });
+    }
+  };
+
   return (
     <Center 
       h="100vh" 
@@ -181,6 +221,52 @@ const AuthForm: React.FC = () => {
               />
               <Text size={isMobileOrTablet ? (isNarrowMobile ? 'md' : 'lg') : '40px'}>
                 Continue with Google
+              </Text>
+            </Flex>
+          </Button>
+          <Button
+            variant="outline"
+            color="black"
+            radius={24}
+            fullWidth
+            mt="md"
+            size={isMobileOrTablet ? 'sm' : 'lg'}
+            bg='#d1c4e9'
+            onClick={handleAppleSignIn}
+          >
+            <Flex direction='row' gap={10} align='center'>
+              <Image
+                component={NextImage}
+                h={isMobileOrTablet ? 25 : 30}
+                w={isMobileOrTablet ? 25 : 30}
+                src={apple}
+                alt="Apple logo"
+              />
+              <Text size={isMobileOrTablet ? (isNarrowMobile ? 'md' : 'lg') : '40px'}>
+                Continue with Apple
+              </Text>
+            </Flex>
+          </Button>
+          <Button
+            variant="outline"
+            color="black"
+            radius={24}
+            fullWidth
+            mt="md"
+            size={isMobileOrTablet ? 'sm' : 'lg'}
+            bg='#d1c4e9'
+            onClick={handleXSignIn}
+          >
+            <Flex direction='row' gap={10} align='center'>
+              <Image
+                component={NextImage}
+                h={isMobileOrTablet ? 25 : 30}
+                w={isMobileOrTablet ? 25 : 30}
+                src={twitter}
+                alt="Apple logo"
+              />
+              <Text size={isMobileOrTablet ? (isNarrowMobile ? 'md' : 'lg') : '40px'}>
+                Continue with X
               </Text>
             </Flex>
           </Button>

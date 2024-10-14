@@ -9,7 +9,7 @@ export default function PaymentComplete() {
   useEffect(() => {
     // Redirect to the main app page after a short delay
     const timer = setTimeout(() => {
-      router.push('/chat');  // Adjust this to your main app route
+      router.push('/chat'); 
     }, 5000);
 
     return () => clearTimeout(timer);
