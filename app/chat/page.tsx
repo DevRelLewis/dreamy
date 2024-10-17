@@ -326,13 +326,17 @@ const Chat: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const handleAuthCallback = async () => {
-      const hashParams = new URLSearchParams(window.location.hash.slice(1));
-      const accessToken = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
+    const handleSession = async () => {
+      try {
+        setLoading(true);
 
-      if (accessToken && refreshToken) {
-        try {
+        // Check for access token in URL
+        const hashParams = new URLSearchParams(window.location.hash.slice(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+
+        if (accessToken && refreshToken) {
+          // Set session if tokens are present
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
@@ -341,33 +345,47 @@ const Chat: React.FC = () => {
           if (error) throw error;
 
           console.log('Session set successfully', data);
-          
-          // Verify the session was set correctly
-          const { data: { user }, error: userError } = await supabase.auth.getUser();
-          if (userError) throw userError;
 
-          if (user) {
-            console.log('User authenticated:', user);
-            router.push('/chat');
-          } else {
-            throw new Error('User not found after setting session');
-          }
-        } catch (error) {
-          console.error('Error setting session:', error);
-          router.push('/login?error=SetSessionError');
+          // Clear the URL hash
+          window.history.replaceState(null, '', window.location.pathname);
         }
-      } else {
-        console.error('No tokens found in URL');
-        router.push('/login?error=NoTokens');
+
+        // Get user data
+        const { data: { user }, error } = await supabase.auth.getUser();
+
+        if (error) throw error;
+
+        if (user) {
+          setUser(user);
+          console.log('User authenticated:', user);
+        } else {
+          console.log('No user found, redirecting to login');
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error('Error handling session:', error);
+        router.push('/login');
+      } finally {
+        setLoading(false);
       }
     };
 
-    handleAuthCallback();
-  }, [router, supabase]);
+    handleSession();
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session);
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        setUser(session?.user ?? null);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        router.push('/login');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [router, supabase]);
 
   const handleDisclaimerClose = () => {
     setIsDisclaimerOpen(false);
