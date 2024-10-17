@@ -11,13 +11,8 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
-  // Allow access to the root page and auth callback regardless of session status
-  if (req.nextUrl.pathname === '/' || req.nextUrl.pathname.startsWith('/auth')) {
-    return res
-  }
-
-  // For all other routes, redirect to root if there's no session
-  if (!session) {
+  // If there's no session and the user is trying to access a protected route
+  if (!session && !req.nextUrl.pathname.startsWith('/') && !req.nextUrl.pathname.startsWith('/auth')) {
     const redirectUrl = req.nextUrl.clone()
     redirectUrl.pathname = '/'
     redirectUrl.searchParams.set(`redirectedFrom`, req.nextUrl.pathname)
