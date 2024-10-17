@@ -11,12 +11,12 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const handleAuthCallback = async () => {
-      const hashParams = new URLSearchParams(window.location.hash.slice(1));
-      const accessToken = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
+      try {
+        const hashParams = new URLSearchParams(window.location.hash.slice(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
 
-      if (accessToken && refreshToken) {
-        try {
+        if (accessToken && refreshToken) {
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
@@ -25,24 +25,26 @@ export default function AuthCallbackPage() {
           if (error) throw error;
 
           console.log('Session set successfully', data);
-          
+
           // Verify the session was set correctly
           const { data: { user }, error: userError } = await supabase.auth.getUser();
           if (userError) throw userError;
 
           if (user) {
             console.log('User authenticated:', user);
-            router.push('/chat');
+            // Use replace instead of push to avoid browser back button issues
+            router.replace('/chat');
           } else {
             throw new Error('User not found after setting session');
           }
-        } catch (error) {
-          console.error('Error setting session:', error);
-          router.push('/login?error=SetSessionError');
+        } else {
+          throw new Error('No tokens found in URL');
         }
-      } else {
-        console.error('No tokens found in URL');
-        router.push('/login?error=NoTokens');
+      } catch (error) {
+        console.error('Error setting session:', error);
+        console.error('Authentication failed. Please try logging in again.');
+        // Redirect to login page after a short delay to show the error
+        setTimeout(() => router.replace('/'), 3000);
       }
     };
 

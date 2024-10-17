@@ -326,51 +326,27 @@ const Chat: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const handleSession = async () => {
+    const checkUser = async () => {
       try {
-        setLoading(true);
-
-        // Check for access token in URL
-        const hashParams = new URLSearchParams(window.location.hash.slice(1));
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
-
-        if (accessToken && refreshToken) {
-          // Set session if tokens are present
-          const { data, error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-
-          if (error) throw error;
-
-          console.log('Session set successfully', data);
-
-          // Clear the URL hash
-          window.history.replaceState(null, '', window.location.pathname);
-        }
-
-        // Get user data
         const { data: { user }, error } = await supabase.auth.getUser();
-
         if (error) throw error;
-
+        
         if (user) {
           setUser(user);
           console.log('User authenticated:', user);
         } else {
           console.log('No user found, redirecting to login');
-          router.push('/login');
+          router.replace('/');
         }
       } catch (error) {
-        console.error('Error handling session:', error);
-        router.push('/login');
+        console.error('Error checking user:', error);
+        router.replace('/');
       } finally {
         setLoading(false);
       }
     };
 
-    handleSession();
+    checkUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event, session);
@@ -378,7 +354,7 @@ const Chat: React.FC = () => {
         setUser(session?.user ?? null);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
-        router.push('/login');
+        router.replace('/login');
       }
     });
 
