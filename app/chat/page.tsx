@@ -326,49 +326,17 @@ const Chat: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    let mounted = true;
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+    }
 
-    const checkUser = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        
-        if (session?.user && mounted) {
-          setUser(session.user);
-          console.log('User authenticated:', session.user);
-        } else if (mounted) {
-          console.log('No session found, redirecting to login');
-          router.replace('/');
-        }
-      } catch (error) {
-        console.error('Error checking user:', error);
-        if (mounted) {
-          router.replace('/');
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
+    getUser()
+  }, [supabase])
 
-    checkUser();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session);
-      if (session?.user && mounted) {
-        setUser(session.user);
-      } else if (mounted) {
-        setUser(null);
-        router.replace('/');
-      }
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, [router]);
+  if (!user) {
+    return <div>Loading...</div>
+  }
 
   const handleDisclaimerClose = () => {
     setIsDisclaimerOpen(false);
