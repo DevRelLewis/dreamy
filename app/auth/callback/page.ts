@@ -25,7 +25,17 @@ export default function AuthCallbackPage() {
           if (error) throw error;
 
           console.log('Session set successfully', data);
-          router.push('/chat');
+          
+          // Verify the session was set correctly
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          if (userError) throw userError;
+
+          if (user) {
+            console.log('User authenticated:', user);
+            router.push('/chat');
+          } else {
+            throw new Error('User not found after setting session');
+          }
         } catch (error) {
           console.error('Error setting session:', error);
           router.push('/login?error=SetSessionError');
@@ -39,5 +49,5 @@ export default function AuthCallbackPage() {
     handleAuthCallback();
   }, [router, supabase]);
 
-
+ 
 }
