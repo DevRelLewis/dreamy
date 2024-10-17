@@ -1,9 +1,4 @@
 {
-  "functions": {
-      "api/dalle.js": {
-        "maxDuration": 10  
-      }
-    },
     "crons": [{
       "path": "/api/cron/monthly-token-distribution",
       "schedule": "0 1 1 * *"
