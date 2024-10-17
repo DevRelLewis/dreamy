@@ -1,41 +1,32 @@
 // middleware.ts
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
-import { NextResponse, type NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-  console.log('Middleware running for path:', request.nextUrl.pathname)
-  
+export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req: request, res })
+  const supabase = createMiddlewareClient({ req, res })
 
-  console.log('Checking session...')
   const {
     data: { session },
   } = await supabase.auth.getSession()
 
-  console.log('Session:', session ? 'Found' : 'Not found')
+  // Allow access to the root page and auth callback regardless of session status
+  if (req.nextUrl.pathname === '/' || req.nextUrl.pathname.startsWith('/auth')) {
+    return res
+  }
 
-  // If there's no session and the user is trying to access a protected route
-  if (!session && !request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.pathname.startsWith('/auth')) {
-    console.log('No session, redirecting to login')
-    const redirectUrl = request.nextUrl.clone()
-    redirectUrl.pathname = '/login'
-    redirectUrl.searchParams.set(`redirectedFrom`, request.nextUrl.pathname)
+  // For all other routes, redirect to root if there's no session
+  if (!session) {
+    const redirectUrl = req.nextUrl.clone()
+    redirectUrl.pathname = '/'
+    redirectUrl.searchParams.set(`redirectedFrom`, req.nextUrl.pathname)
     return NextResponse.redirect(redirectUrl)
   }
 
-  // If there's a session and the user is trying to access the login page
-  if (session && request.nextUrl.pathname.startsWith('/login')) {
-    console.log('Session found, redirecting to chat')
-    const redirectUrl = request.nextUrl.clone()
-    redirectUrl.pathname = '/chat'
-    return NextResponse.redirect(redirectUrl)
-  }
-
-  console.log('Middleware completed')
   return res
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }
