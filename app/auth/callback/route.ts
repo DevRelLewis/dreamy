@@ -10,16 +10,27 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = createRouteHandlerClient({ cookies })
     try {
-      await supabase.auth.exchangeCodeForSession(code)
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code)
       
-      // Explicitly get and log the session
-      const { data: { session }, error } = await supabase.auth.getSession()
       if (error) throw error
-      console.log('Session set in callback:', session)
-      
+
+      console.log('Session data:', data)
+
+      // Explicitly set the session
+      if (data.session) {
+        await supabase.auth.setSession(data.session)
+      }
+
+      // Verify the session was set correctly
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) throw sessionError
+
+      console.log('Verified session:', sessionData.session)
+
     } catch (error) {
       console.error('Error in auth callback:', error)
       // You might want to redirect to an error page here
+      return NextResponse.redirect(`${requestUrl.origin}/error?message=${encodeURIComponent('Authentication failed')}`)
     }
   }
 
