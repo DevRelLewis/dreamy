@@ -356,7 +356,7 @@ const Chat: React.FC = () => {
         } catch (error) {
           console.error('Error authenticating user:', error);
           // Redirect to login page or show error message
-          router.push('/login');
+          // router.push('/');
         }
       } else {
         // No tokens in URL, check for existing session
