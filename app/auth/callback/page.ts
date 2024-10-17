@@ -27,29 +27,29 @@ export default function AuthCallbackPage() {
           console.log('Session set successfully', data);
 
           // Verify the session was set correctly
-          const { data: { user }, error: userError } = await supabase.auth.getUser();
-          if (userError) throw userError;
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError) throw sessionError;
 
-          if (user) {
-            console.log('User authenticated:', user);
+          if (session) {
+            console.log('Session verified:', session);
             // Use replace instead of push to avoid browser back button issues
             router.replace('/chat');
           } else {
-            throw new Error('User not found after setting session');
+            throw new Error('Session not found after setting');
           }
         } else {
           throw new Error('No tokens found in URL');
         }
       } catch (error) {
         console.error('Error setting session:', error);
-        console.error('Authentication failed. Please try logging in again.');
+        console.log('Authentication failed. Please try logging in again.');
         // Redirect to login page after a short delay to show the error
-        setTimeout(() => router.replace('/'), 3000);
+        setTimeout(() => router.replace('/login'), 3000);
       }
     };
 
     handleAuthCallback();
-  }, [router, supabase]);
+  }, [router]);
 
  
 }

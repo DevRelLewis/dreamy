@@ -326,23 +326,29 @@ const Chat: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+
     const checkUser = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
         
-        if (user) {
-          setUser(user);
-          console.log('User authenticated:', user);
-        } else {
-          console.log('No user found, redirecting to login');
+        if (session?.user && mounted) {
+          setUser(session.user);
+          console.log('User authenticated:', session.user);
+        } else if (mounted) {
+          console.log('No session found, redirecting to login');
           router.replace('/');
         }
       } catch (error) {
         console.error('Error checking user:', error);
-        router.replace('/');
+        if (mounted) {
+          router.replace('/');
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -350,18 +356,19 @@ const Chat: React.FC = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event, session);
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        setUser(session?.user ?? null);
-      } else if (event === 'SIGNED_OUT') {
+      if (session?.user && mounted) {
+        setUser(session.user);
+      } else if (mounted) {
         setUser(null);
-        router.replace('/login');
+        router.replace('/');
       }
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
-  }, [router, supabase]);
+  }, [router]);
 
   const handleDisclaimerClose = () => {
     setIsDisclaimerOpen(false);
