@@ -61,7 +61,7 @@ const DreamHistoryMenu: React.FC = () => {
                 textAlign: 'left',
               },
             })}
-            onClick={() => {/* Handle dream selection */}}
+            onClick={() => {}}
           >
             {truncateTitle(dream.title)}
           </Button>
