@@ -319,7 +319,7 @@ const Chat: React.FC = () => {
 
     fetchUserAndData();
 
-    // Cleanup function
+    
     return () => {
       // No cleanup needed in this case
     };
