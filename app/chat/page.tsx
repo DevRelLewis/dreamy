@@ -321,6 +321,66 @@ const Chat: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const authenticateUser = async () => {
+      setLoading(true);
+
+      // Extract the access token from the URL hash
+      const hashParams = new URLSearchParams(window.location.hash.slice(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+
+      if (accessToken && refreshToken) {
+        try {
+          // Set the session using the extracted tokens
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) throw error;
+
+          // Verify the session
+          const { data: { user } } = await supabase.auth.getUser();
+
+          if (user) {
+            setCurrentUserId(user.id);
+            const userData = await checkOrCreateUser(user);
+            if (userData) {
+              setUserData(userData);
+            }
+            // Clear the URL hash
+            window.history.replaceState(null, '', window.location.pathname);
+          } else {
+            throw new Error('User not found');
+          }
+        } catch (error) {
+          console.error('Error authenticating user:', error);
+          // Redirect to login page or show error message
+          router.push('/login');
+        }
+      } else {
+        // No tokens in URL, check for existing session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { user } = session;
+          setCurrentUserId(user.id);
+          const userData = await checkOrCreateUser(user);
+          if (userData) {
+            setUserData(userData);
+          }
+        } else {
+          // No session, redirect to login
+          router.push('/login');
+        }
+      }
+
+      setLoading(false);
+    };
+
+    authenticateUser();
+  }, []);
+
+  useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
