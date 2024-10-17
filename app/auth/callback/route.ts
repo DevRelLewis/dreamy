@@ -1,30 +1,39 @@
-import { NextResponse } from 'next/server'
-// The client you created from the Server-Side Auth instructions
-import { createClient } from '../../../supabase/authClient'
+// app/auth/callback/page.tsx
+'use client';
 
-export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get('code')
-  // if "next" is in param, use it as the redirect URL
-  const next = searchParams.get('next') ?? '/'
+import { useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
-  if (code) {
-    const supabase = createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
-      const forwardedHost = request.headers.get('x-forwarded-host') // original origin before load balancer
-      const isLocalEnv = process.env.NODE_ENV === 'development'
-      if (isLocalEnv) {
-        // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
-        return NextResponse.redirect(`${origin}${next}`)
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`)
+export default function AuthCallbackPage() {
+  const router = useRouter();
+  const supabase = createClientComponentClient();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const handleAuthCallback = async () => {
+      const access_token = searchParams.get('access_token');
+      const refresh_token = searchParams.get('refresh_token');
+
+      if (access_token && refresh_token) {
+        await supabase.auth.setSession({
+          access_token,
+          refresh_token,
+        });
+
+        // Refresh the page to ensure the new session is reflected
+        router.refresh();
+
+        // Redirect to the desired page after successful authentication
+        router.push('/dashboard');
       } else {
-        return NextResponse.redirect(`${origin}${next}`)
+        console.error('No tokens found in URL');
+        router.push('/login?error=AuthCallbackError');
       }
-    }
-  }
+    };
 
-  // return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+    handleAuthCallback();
+  }, [router, supabase, searchParams]);
+
+
 }
