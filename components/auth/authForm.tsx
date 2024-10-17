@@ -30,7 +30,6 @@ const AuthForm: React.FC = () => {
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-
   const router = useRouter();
   const theme = useMantineTheme();
   const isMobileOrTablet = useMediaQuery('(max-width: 1024px)');
