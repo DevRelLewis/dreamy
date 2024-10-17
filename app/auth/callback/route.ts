@@ -2,38 +2,42 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
   const supabase = createClientComponentClient();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     const handleAuthCallback = async () => {
-      const access_token = searchParams.get('access_token');
-      const refresh_token = searchParams.get('refresh_token');
+      const hashParams = new URLSearchParams(window.location.hash.slice(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
 
-      if (access_token && refresh_token) {
-        await supabase.auth.setSession({
-          access_token,
-          refresh_token,
-        });
+      if (accessToken && refreshToken) {
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
 
-        // Refresh the page to ensure the new session is reflected
-        router.refresh();
+          if (error) throw error;
 
-        // Redirect to the desired page after successful authentication
-        router.push('/dashboard');
+          console.log('Session set successfully', data);
+          router.push('/chat');
+        } catch (error) {
+          console.error('Error setting session:', error);
+          router.push('/login?error=SetSessionError');
+        }
       } else {
         console.error('No tokens found in URL');
-        router.push('/login?error=AuthCallbackError');
+        router.push('/login?error=NoTokens');
       }
     };
 
     handleAuthCallback();
-  }, [router, supabase, searchParams]);
+  }, [router, supabase]);
 
 
 }

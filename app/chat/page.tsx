@@ -76,6 +76,8 @@ type DreamSession = {
   image_url: string;
 };
 
+type User = {}
+
 const theme = createTheme({
   primaryColor: "blue",
   fontFamily: "Segoe UI, sans-serif",
@@ -194,6 +196,9 @@ const Chat: React.FC = () => {
   const [isFirstMessage, setIsFirstMessage] = useState(true);
   const isTablet = useMediaQuery("(max-width: 1024px) and (max-height: 790px)");
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(true);
+  const [user, setUser] = useState<User | null>(
+    null
+  );
 
   const truncateTitle = (title: string) => {
     const words = title.split(" ");
@@ -321,64 +326,32 @@ const Chat: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const authenticateUser = async () => {
-      setLoading(true);
-
-      // Extract the access token from the URL hash
-      const hashParams = new URLSearchParams(window.location.hash.slice(1));
-      const accessToken = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
-
-      if (accessToken && refreshToken) {
-        try {
-          // Set the session using the extracted tokens
-          const { data, error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-
-          if (error) throw error;
-
-          // Verify the session
-          const { data: { user } } = await supabase.auth.getUser();
-
-          if (user) {
-            setCurrentUserId(user.id);
-            const userData = await checkOrCreateUser(user);
-            if (userData) {
-              setUserData(userData);
-            }
-            // Clear the URL hash
-            window.history.replaceState(null, '', window.location.pathname);
-          } else {
-            throw new Error('User not found');
-          }
-        } catch (error) {
-          console.error('Error authenticating user:', error);
-          // Redirect to login page or show error message
-          // router.push('/');
-        }
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUser(user);
       } else {
-        // No tokens in URL, check for existing session
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const { user } = session;
-          setCurrentUserId(user.id);
-          const userData = await checkOrCreateUser(user);
-          if (userData) {
-            setUserData(userData);
-          }
-        } else {
-          // No session, redirect to login
-          router.push('/login');
-        }
+        router.push('/');
       }
-
       setLoading(false);
     };
 
-    authenticateUser();
-  }, []);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') {
+        setUser(session?.user ?? null);
+        setLoading(false);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        router.push('/login');
+      }
+    });
+
+    checkUser();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [router, supabase]);
 
   useEffect(() => {
     scrollToBottom();
