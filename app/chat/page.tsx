@@ -325,30 +325,30 @@ const Chat: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const getSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession()
-      if (error) {
-        console.error('Error getting session:', error)
-      } else if (session) {
-        setUser(session.user)
-      }
-      setLoading(false)
-    }
+  // useEffect(() => {
+  //   const getSession = async () => {
+  //     const { data: { session }, error } = await supabase.auth.getSession()
+  //     if (error) {
+  //       console.error('Error getting session:', error)
+  //     } else if (session) {
+  //       setUser(session.user)
+  //     }
+  //     setLoading(false)
+  //   }
 
-    getSession()
+  //   getSession()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session)
-      if (session) {
-        setUser(session.user)
-      } else {
-        setUser(null)
-      }
-    })
+  //   const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+  //     console.log('Auth state changed:', event, session)
+  //     if (session) {
+  //       setUser(session.user)
+  //     } else {
+  //       setUser(null)
+  //     }
+  //   })
 
-    return () => subscription.unsubscribe()
-  }, [supabase])
+  //   return () => subscription.unsubscribe()
+  // }, [supabase])
 
   const handleDisclaimerClose = () => {
     setIsDisclaimerOpen(false);
