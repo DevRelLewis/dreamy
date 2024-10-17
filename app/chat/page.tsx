@@ -326,31 +326,43 @@ const Chat: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUser(user);
+    const handleAuthCallback = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.slice(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+
+      if (accessToken && refreshToken) {
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) throw error;
+
+          console.log('Session set successfully', data);
+          
+          // Verify the session was set correctly
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          if (userError) throw userError;
+
+          if (user) {
+            console.log('User authenticated:', user);
+            router.push('/chat');
+          } else {
+            throw new Error('User not found after setting session');
+          }
+        } catch (error) {
+          console.error('Error setting session:', error);
+          router.push('/login?error=SetSessionError');
+        }
       } else {
-        router.push('/');
+        console.error('No tokens found in URL');
+        router.push('/login?error=NoTokens');
       }
-      setLoading(false);
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN') {
-        setUser(session?.user ?? null);
-        setLoading(false);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-        router.push('/login');
-      }
-    });
-
-    checkUser();
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    handleAuthCallback();
   }, [router, supabase]);
 
   useEffect(() => {

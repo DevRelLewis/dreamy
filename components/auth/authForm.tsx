@@ -95,9 +95,6 @@ const AuthForm: React.FC = () => {
     try {
       const { data, error } = await supabase.auth.linkIdentity({
         provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/chat`,
-        },
       });
 
       if (error) throw error;
