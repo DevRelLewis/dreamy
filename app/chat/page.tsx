@@ -253,46 +253,122 @@ const Chat: React.FC = () => {
   };
 
   useEffect(() => {
-    const getUser = async () => {
+    const fetchUserAndData = async () => {
+      setLoading(true);
+
       try {
-        console.log('Fetching user...')
-        const { data, error } = await supabase.auth.getUser()
-        console.log('Auth response:', data, error)
+        // Check if the user has seen the disclaimer before
+        const handleDisclaimerClose = () => {
+          setIsDisclaimerOpen(false);
+          localStorage.setItem("hasSeenDisclaimer", "true");
+        };
 
-        if (error) {
-          throw error
-        }
+        // Get the current authenticated user
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-        if (data.user) {
-          console.log('User found:', data.user)
-          setUser(data.user)
+        if (user) {
+          setCurrentUserId(user.id);
+
+          // Check if user exists in the users table or create a new entry
+          const userData = await checkOrCreateUser(user);
+          if (userData) {
+            setUserData(userData);
+            // Set the subscription status based on the is_subscribed field
+            setIsSubscriptionActive(userData.is_subscribed);
+          }
+
+          const { data: dreamHistoryData, error: dreamHistoryError } =
+            await supabase
+              .from("dream_sessions")
+              .select("id, dream_text, created_at, image_url")
+              .eq("user_id", user.id)
+              .order("created_at", { ascending: false });
+
+          if (dreamHistoryError) {
+            throw dreamHistoryError;
+          }
+
+          setDreamHistory(dreamHistoryData || []);
+
+          // Don't automatically set active session or load messages
+          setActiveSessionId(null);
+          setMessages([]);
         } else {
-          console.log('No user found')
-          console.log('No user found')
+          // Handle case where there is no authenticated user
+          console.log("No authenticated user found");
+          setCurrentUserId(null);
+          setUserData(null);
+          setIsSubscriptionActive(false);
+          setMessages([]);
+          setDreamHistory([]);
+          setActiveSessionId(null);
         }
       } catch (error) {
-        console.error('Error fetching user:', error)
-        console.log('Error fetching user')
+        console.error("Error fetching user data and history:", error);
+        notifications.show({
+          title: "Error",
+          message: "Failed to load user data and dream history.",
+          color: "red",
+        });
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    getUser()
-  }, [supabase])
+    fetchUserAndData();
+
+    // Cleanup function
+    return () => {
+      // No cleanup needed in this case
+    };
+  }, []);
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-    }
+    let mounted = true;
 
-    getUser()
-  }, [supabase])
+    const checkUser = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        
+        if (session?.user && mounted) {
+          setUser(session.user);
+          console.log('User authenticated:', session.user);
+        } else if (mounted) {
+          console.log('No session found, redirecting to login');
+          router.replace('/');
+        }
+      } catch (error) {
+        console.error('Error checking user:', error);
+        if (mounted) {
+          router.replace('/');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
 
-  if (!user) {
-    return <div>Loading...</div>
-  }
+    checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session);
+      if (session?.user && mounted) {
+        setUser(session.user);
+      } else if (mounted) {
+        setUser(null);
+        router.replace('/');
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   const handleDisclaimerClose = () => {
     setIsDisclaimerOpen(false);
