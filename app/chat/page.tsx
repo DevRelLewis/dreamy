@@ -253,77 +253,33 @@ const Chat: React.FC = () => {
   };
 
   useEffect(() => {
-    const fetchUserAndData = async () => {
-      setLoading(true);
-
+    const getUser = async () => {
       try {
-        // Check if the user has seen the disclaimer before
-        const handleDisclaimerClose = () => {
-          setIsDisclaimerOpen(false);
-          localStorage.setItem("hasSeenDisclaimer", "true");
-        };
+        console.log('Fetching user...')
+        const { data, error } = await supabase.auth.getUser()
+        console.log('Auth response:', data, error)
 
-        // Get the current authenticated user
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        if (error) {
+          throw error
+        }
 
-        if (user) {
-          setCurrentUserId(user.id);
-
-          // Check if user exists in the users table or create a new entry
-          const userData = await checkOrCreateUser(user);
-          if (userData) {
-            setUserData(userData);
-            // Set the subscription status based on the is_subscribed field
-            setIsSubscriptionActive(userData.is_subscribed);
-          }
-
-          const { data: dreamHistoryData, error: dreamHistoryError } =
-            await supabase
-              .from("dream_sessions")
-              .select("id, dream_text, created_at, image_url")
-              .eq("user_id", user.id)
-              .order("created_at", { ascending: false });
-
-          if (dreamHistoryError) {
-            throw dreamHistoryError;
-          }
-
-          setDreamHistory(dreamHistoryData || []);
-
-          // Don't automatically set active session or load messages
-          setActiveSessionId(null);
-          setMessages([]);
+        if (data.user) {
+          console.log('User found:', data.user)
+          setUser(data.user)
         } else {
-          // Handle case where there is no authenticated user
-          console.log("No authenticated user found");
-          setCurrentUserId(null);
-          setUserData(null);
-          setIsSubscriptionActive(false);
-          setMessages([]);
-          setDreamHistory([]);
-          setActiveSessionId(null);
+          console.log('No user found')
+          console.log('No user found')
         }
       } catch (error) {
-        console.error("Error fetching user data and history:", error);
-        notifications.show({
-          title: "Error",
-          message: "Failed to load user data and dream history.",
-          color: "red",
-        });
+        console.error('Error fetching user:', error)
+        console.log('Error fetching user')
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    fetchUserAndData();
-
-    // Cleanup function
-    return () => {
-      // No cleanup needed in this case
-    };
-  }, []);
+    getUser()
+  }, [supabase])
 
   useEffect(() => {
     const getUser = async () => {
