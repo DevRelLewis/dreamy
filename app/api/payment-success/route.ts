@@ -34,8 +34,6 @@ export async function POST(req: NextRequest) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
     
-    // For testing, you might need to retrieve the customer email differently
-    // as the test event might not include a customer email
     const userEmail = session.customer_email || 'gregory.reeves@teachstone.com';
 
     console.log('Processing completed checkout for:', userEmail);
