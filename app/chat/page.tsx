@@ -327,36 +327,32 @@ const Chat: React.FC = () => {
 
   useEffect(() => {
     const handleSession = async () => {
-      // Check if there are tokens in the URL fragment
-      if (window.location.hash) {
-        const hashParams = new URLSearchParams(window.location.hash.slice(1))
-        const accessToken = hashParams.get('access_token')
-        const refreshToken = hashParams.get('refresh_token')
-
-        if (accessToken && refreshToken) {
-          // Set the session with the tokens from the URL
-          await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
+      try {
+        // Check for existing session in local storage
+        const storedSession = localStorage.getItem('supabase_session')
+        if (storedSession) {
+          const parsedSession = JSON.parse(storedSession)
+          const { data, error } = await supabase.auth.setSession({
+            access_token: parsedSession.access_token,
+            refresh_token: parsedSession.refresh_token,
           })
-          // Clear the hash from the URL
-          window.history.replaceState({}, document.title, window.location.pathname)
+
+          if (error) throw error
         }
-      }
 
-      // Check for existing session in local storage
-      const storedSession = localStorage.getItem('supabase_session')
-      if (storedSession) {
-        const sessionData = JSON.parse(storedSession)
-        await supabase.auth.setSession(sessionData)
-      }
+        // Get the current user
+        const { data: { user }, error } = await supabase.auth.getUser()
+        if (error) throw error
 
-      // Get the current session
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      setLoading(false)
+        setUser(user)
+        setLoading(false)
 
-      if (!user) {
+        if (!user) {
+          router.push('/')
+        }
+      } catch (error) {
+        console.error('Error handling session:', error)
+        setLoading(false)
         router.push('/')
       }
     }
