@@ -35,60 +35,6 @@ const AuthForm: React.FC = () => {
   const isMobileOrTablet = useMediaQuery('(max-width: 1024px)');
   const isNarrowMobile = useMediaQuery('(max-width: 320px)');
 
-  const toggleAuthMode = () => {
-    setAuthMode(authMode === 'signIn' ? 'signUp' : 'signIn');
-    setError(null);
-  };
-
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      if (authMode === 'signUp') {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/confirm`,
-          },
-        });
-
-        if (error) throw error;
-
-        notifications.show({
-          title: 'Sign Up Successful',
-          message: 'Please check your email to confirm your account.',
-          color: 'green',
-        });
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) throw error;
-
-        notifications.show({
-          title: 'Sign In Successful',
-          message: 'You have successfully signed in.',
-          color: 'green',
-        });
-
-        router.push('/chat');
-      }
-    } catch (err: any) {
-      setError(err.message);
-      notifications.show({
-        title: `${authMode === 'signIn' ? 'Sign In' : 'Sign Up'} Error`,
-        message: err.message,
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleGoogleSignIn = async () => {
     try {
