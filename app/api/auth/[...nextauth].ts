@@ -1,8 +1,8 @@
-import NextAuth, { NextAuthOptions } from "next-auth"
+import NextAuth from "next-auth"
 import GithubProvider from "next-auth/providers/github"
 import GoogleProvider from "next-auth/providers/google"
 
-export const authOptions: NextAuthOptions = {
+const handler = NextAuth({
   providers: [
     GithubProvider({
       clientId: process.env.GITHUB_ID!,
@@ -14,11 +14,11 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   pages: {
-    signIn: '/auth/signin',
+    signIn: '/',
+    error: '/auth/error', // Error code passed in query string as ?error=
   },
   callbacks: {
     async session({ session, token, user }) {
-      // Send properties to the client, like an access_token and user id from a provider.
       return {
         ...session,
         accessToken: token.accessToken as string,
@@ -29,13 +29,13 @@ export const authOptions: NextAuthOptions = {
       }
     },
     async jwt({ token, account }) {
-      // Persist the OAuth access_token to the token right after signin
       if (account) {
         token.accessToken = account.access_token
       }
       return token
     }
-  }
-}
+  },
+  debug: process.env.NODE_ENV === 'development',
+})
 
-export default NextAuth(authOptions)
+export { handler as GET, handler as POST }
