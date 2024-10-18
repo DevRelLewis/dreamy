@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   }
 
   // If there's an error or no code, redirect to the "/auth" route with an error message
-  const redirectTo = new URL('/auth', origin);
+  const redirectTo = new URL('/chat', origin);
   redirectTo.searchParams.set(
     'message',
     encodeURIComponent('Der opstod en fejl under login. Prøv venligst igen.') // Add the error message in Danish
