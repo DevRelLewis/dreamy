@@ -257,7 +257,6 @@ const Chat: React.FC = () => {
       setLoading(true);
 
       try {
-        // Check if the user has seen the disclaimer before
         const handleDisclaimerClose = () => {
           setIsDisclaimerOpen(false);
           localStorage.setItem("hasSeenDisclaimer", "true");
