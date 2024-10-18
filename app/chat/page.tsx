@@ -325,30 +325,53 @@ const Chat: React.FC = () => {
     };
   }, []);
 
-  // useEffect(() => {
-  //   const getSession = async () => {
-  //     const { data: { session }, error } = await supabase.auth.getSession()
-  //     if (error) {
-  //       console.error('Error getting session:', error)
-  //     } else if (session) {
-  //       setUser(session.user)
-  //     }
-  //     setLoading(false)
-  //   }
+  useEffect(() => {
+    const handleSession = async () => {
+      // Check if there are tokens in the URL fragment
+      if (window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.slice(1))
+        const accessToken = hashParams.get('access_token')
+        const refreshToken = hashParams.get('refresh_token')
 
-  //   getSession()
+        if (accessToken && refreshToken) {
+          // Set the session with the tokens from the URL
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+          // Clear the hash from the URL
+          window.history.replaceState({}, document.title, window.location.pathname)
+        }
+      }
 
-  //   const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-  //     console.log('Auth state changed:', event, session)
-  //     if (session) {
-  //       setUser(session.user)
-  //     } else {
-  //       setUser(null)
-  //     }
-  //   })
+      // Check for existing session in local storage
+      const storedSession = localStorage.getItem('supabase_session')
+      if (storedSession) {
+        const sessionData = JSON.parse(storedSession)
+        await supabase.auth.setSession(sessionData)
+      }
 
-  //   return () => subscription.unsubscribe()
-  // }, [supabase])
+      // Get the current session
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+      setLoading(false)
+
+      if (!user) {
+        router.push('/')
+      }
+    }
+
+    handleSession()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      if (!session?.user) {
+        router.push('/')
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router, supabase.auth])
 
   const handleDisclaimerClose = () => {
     setIsDisclaimerOpen(false);
