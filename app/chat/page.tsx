@@ -346,13 +346,13 @@ const Chat: React.FC = () => {
         setUser(user)
         setLoading(false)
 
-        if (!user) {
-          router.push('/')
-        }
+        // if (!user) {
+        //   router.push('/')
+        // }
       } catch (error) {
         console.error('Error handling session:', error)
         setLoading(false)
-        router.push('/')
+        // router.push('/')
       }
     }
 
@@ -361,7 +361,7 @@ const Chat: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       if (!session?.user) {
-        router.push('/')
+        // router.push('/')
       }
     })
 
@@ -568,11 +568,6 @@ const Chat: React.FC = () => {
     } else {
       console.error("Error refreshing dream history:", error);
     }
-  };
-
-  const handleTopUp = (amount: number) => {
-    setSelectedTopUpAmount(amount);
-    setIsToppedUp(true);
   };
 
   return (
