@@ -41,8 +41,8 @@ const AuthForm: React.FC = () => {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/chat`,
-        },
+          redirectTo: `${location.origin}/api/auth/callback`
+        }
       });
 
       if (error) throw error;
@@ -60,8 +60,8 @@ const AuthForm: React.FC = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
-          redirectTo: `${window.location.origin}/chat`,
-        },
+          redirectTo: `${location.origin}/api/auth/callback`
+        }
       });
 
       if (error) throw error;
@@ -79,8 +79,8 @@ const AuthForm: React.FC = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
-          redirectTo: `${window.location.origin}/chat`,
-        },
+          redirectTo: `${location.origin}/api/auth/callback`
+        }
       });
 
       if (error) throw error;
