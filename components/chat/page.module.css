@@ -1,0 +1,20 @@
+
+.scrollbar {
+
+    &,
+    &:hover {
+      background-color: transparent;
+    }
+
+    padding-left: 5px;
+    border-radius: 25px;
+  
+    &[data-orientation='vertical'] .thumb {
+      background-color: rgba(179, 229, 252, 0.8);
+    }
+  }
+  
+  .corner {
+    background-color: transparent;
+    opacity: 0;
+  }
