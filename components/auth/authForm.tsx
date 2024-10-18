@@ -92,6 +92,7 @@ const AuthForm: React.FC = () => {
           )}
 
         <LoginLink postLoginRedirectURL="/chat">Sign in</LoginLink>
+        <RegisterLink postLoginRedirectURL="/chat">Sign up</RegisterLink>
         </Paper>
       </Container>
     </Center>
