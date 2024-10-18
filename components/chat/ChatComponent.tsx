@@ -45,7 +45,7 @@ import {
 } from "../../components/utils/tokenUtils/TokenUtility";
 import classes from "./page.module.css";
 import { useSession, signOut } from "next-auth/react"
-import { Session } from "next-auth"; 
+
 
 const lobster = Lobster({ weight: "400", subsets: ["latin"] });
 const { data: session, status } = useSession()

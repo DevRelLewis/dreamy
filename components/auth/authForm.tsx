@@ -22,6 +22,7 @@ import apple from "../../app/public/apple.png"
 import twitter from "../../app/public/twitter.png"
 import NextImage from 'next/image'
 import { signIn } from 'next-auth/react'
+import {RegisterLink, LoginLink} from "@kinde-oss/kinde-auth-nextjs/components";
 
 
 type AuthMode = 'signIn' | 'signUp';
@@ -36,20 +37,6 @@ const AuthForm: React.FC = () => {
   const theme = useMantineTheme();
   const isMobileOrTablet = useMediaQuery('(max-width: 1024px)');
   const isNarrowMobile = useMediaQuery('(max-width: 320px)');
-
-
-  const handleGoogleSignIn = () => {
-    signIn('google', { callbackUrl: '/chat' })
-  }
-
-
-  const handleXSignIn = () => {
-    signIn('x', { callbackUrl: '/chat' })
-  }
-
-  const handleGithubSignIn = () => {
-    signIn('github', { callbackUrl: '/chat' })
-  }
 
   return (
     <Center 
@@ -104,75 +91,7 @@ const AuthForm: React.FC = () => {
             </Alert>
           )}
 
-          <Button
-            variant="outline"
-            color="black"
-            radius={24}
-            fullWidth
-            mt="md"
-            size={isMobileOrTablet ? 'sm' : 'lg'}
-            bg='#d1c4e9'
-            onClick={handleGoogleSignIn}
-          >
-            <Flex direction='row' gap={10} align='center'>
-              <Image
-                component={NextImage}
-                h={isMobileOrTablet ? 25 : 30}
-                w={isMobileOrTablet ? 25 : 30}
-                src={google}
-                alt="Google logo"
-              />
-              <Text size={isMobileOrTablet ? (isNarrowMobile ? 'md' : 'lg') : '40px'}>
-                Continue with Google
-              </Text>
-            </Flex>
-          </Button>
-          <Button
-            variant="outline"
-            color="black"
-            radius={24}
-            fullWidth
-            mt="md"
-            size={isMobileOrTablet ? 'sm' : 'lg'}
-            bg='#d1c4e9'
-            onClick={handleGithubSignIn}
-          >
-            <Flex direction='row' gap={10} align='center'>
-              <Image
-                component={NextImage}
-                h={isMobileOrTablet ? 25 : 30}
-                w={isMobileOrTablet ? 25 : 30}
-                src={apple}
-                alt="Apple logo"
-              />
-              <Text size={isMobileOrTablet ? (isNarrowMobile ? 'md' : 'lg') : '40px'}>
-                Continue with Github
-              </Text>
-            </Flex>
-          </Button>
-          <Button
-            variant="outline"
-            color="black"
-            radius={24}
-            fullWidth
-            mt="md"
-            size={isMobileOrTablet ? 'sm' : 'lg'}
-            bg='#d1c4e9'
-            onClick={handleXSignIn}
-          >
-            <Flex direction='row' gap={10} align='center'>
-              <Image
-                component={NextImage}
-                h={isMobileOrTablet ? 25 : 30}
-                w={isMobileOrTablet ? 25 : 30}
-                src={twitter}
-                alt="Apple logo"
-              />
-              <Text size={isMobileOrTablet ? (isNarrowMobile ? 'md' : 'lg') : '40px'}>
-                Continue with X
-              </Text>
-            </Flex>
-          </Button>
+        <LoginLink postLoginRedirectURL="/chat">Sign in</LoginLink>
         </Paper>
       </Container>
     </Center>
