@@ -21,6 +21,8 @@ import google from '../../app/public/google.png'
 import apple from "../../app/public/apple.png"
 import twitter from "../../app/public/twitter.png"
 import NextImage from 'next/image'
+import { signIn } from 'next-auth/react'
+
 
 type AuthMode = 'signIn' | 'signUp';
 
@@ -36,62 +38,18 @@ const AuthForm: React.FC = () => {
   const isNarrowMobile = useMediaQuery('(max-width: 320px)');
 
 
-  const handleGoogleSignIn = async () => {
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${location.origin}/api/auth/callback`
-        }
-      });
+  const handleGoogleSignIn = () => {
+    signIn('google', { callbackUrl: '/chat' })
+  }
 
-      if (error) throw error;
-    } catch (err: any) {
-      notifications.show({
-        title: 'Google Sign In Error',
-        message: err.message,
-        color: 'red',
-      });
-    }
-  };
 
-  const handleAppleSignIn = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: `${location.origin}/api/auth/callback`
-        }
-      });
+  const handleXSignIn = () => {
+    signIn('x', { callbackUrl: '/chat' })
+  }
 
-      if (error) throw error;
-    } catch (err: any) {
-      notifications.show({
-        title: 'Apple Sign In Error',
-        message: err.message,
-        color: 'red',
-      });
-    }
-  };
-
-  const handleXSignIn = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
-        options: {
-          redirectTo: `${location.origin}/api/auth/callback`
-        }
-      });
-
-      if (error) throw error;
-    } catch (err: any) {
-      notifications.show({
-        title: 'X Sign In Error',
-        message: err.message,
-        color: 'red',
-      });
-    }
-  };
+  const handleGithubSignIn = () => {
+    signIn('github', { callbackUrl: '/chat' })
+  }
 
   return (
     <Center 
@@ -177,7 +135,7 @@ const AuthForm: React.FC = () => {
             mt="md"
             size={isMobileOrTablet ? 'sm' : 'lg'}
             bg='#d1c4e9'
-            onClick={handleAppleSignIn}
+            onClick={handleGithubSignIn}
           >
             <Flex direction='row' gap={10} align='center'>
               <Image
@@ -188,7 +146,7 @@ const AuthForm: React.FC = () => {
                 alt="Apple logo"
               />
               <Text size={isMobileOrTablet ? (isNarrowMobile ? 'md' : 'lg') : '40px'}>
-                Continue with Apple
+                Continue with Github
               </Text>
             </Flex>
           </Button>

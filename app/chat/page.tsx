@@ -44,8 +44,10 @@ import {
   estimateTokenCost,
 } from "../../components/utils/tokenUtils/TokenUtility";
 import classes from "./page.module.css";
+import { useSession, signOut } from "next-auth/react"
 
 const lobster = Lobster({ weight: "400", subsets: ["latin"] });
+const { data: session, status } = useSession()
 
 type Message = {
   id: string;
@@ -207,32 +209,6 @@ const Chat: React.FC = () => {
 
   const router = useRouter();
 
-  const handleLogout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-
-      // Clear any user-related state
-
-      // Show a notification
-      notifications.show({
-        title: "Logged Out",
-        message: "You have been successfully logged out.",
-        color: "blue",
-      });
-
-      // Redirect to the home page
-      router.push("/");
-    } catch (error) {
-      console.error("Error during logout:", error);
-      notifications.show({
-        title: "Logout Error",
-        message: "An error occurred during logout. Please try again.",
-        color: "red",
-      });
-    }
-  };
-
   const handleManageSubscription = () => {
     setIsLoading(true);
     try {
@@ -325,48 +301,17 @@ const Chat: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const handleSession = async () => {
-      try {
-        // Check for existing session in local storage
-        const storedSession = localStorage.getItem('supabase_session')
-        if (storedSession) {
-          const parsedSession = JSON.parse(storedSession)
-          const { data, error } = await supabase.auth.setSession({
-            access_token: parsedSession.access_token,
-            refresh_token: parsedSession.refresh_token,
-          })
-
-          if (error) throw error
-        }
-
-        // Get the current user
-        const { data: { user }, error } = await supabase.auth.getUser()
-        if (error) throw error
-
-        setUser(user)
-        setLoading(false)
-
-        // if (!user) {
-        //   router.push('/')
-        // }
-      } catch (error) {
-        console.error('Error handling session:', error)
-        setLoading(false)
-        // router.push('/')
-      }
+    if (status === "unauthenticated") {
+      router.push('/')
+    } else if (status === "authenticated" && session.user) {
+      // Fetch user data and dream history using session.user.id
+      // You might need to adjust your API to use NextAuth.js session for authentication
     }
+  }, [session, status, router])
 
-    handleSession()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      if (!session?.user) {
-        // router.push('/')
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [router, supabase.auth])
+  const handleLogout = () => {
+    signOut()
+  }
 
   const handleDisclaimerClose = () => {
     setIsDisclaimerOpen(false);
