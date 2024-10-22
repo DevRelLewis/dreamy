@@ -44,7 +44,7 @@ import {
   estimateTokenCost,
 } from "../../components/utils/tokenUtils/TokenUtility";
 import classes from "./page.module.css";
-import { useKindeAuth } from "@kinde-oss/kinde-auth-nextjs";
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 const lobster = Lobster({ weight: "400", subsets: ["latin"] });
 
 type KindeUser = {
@@ -183,7 +183,7 @@ const checkOrCreateUser = async (kindeUser: KindeUser): Promise<UserData | null>
 };
 
 
-const Chat: React.FC = () => {
+const Chat: React.FC = (serverUser: any) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
@@ -213,7 +213,7 @@ const Chat: React.FC = () => {
   const [isFirstMessage, setIsFirstMessage] = useState(true);
   const isTablet = useMediaQuery("(max-width: 1024px) and (max-height: 790px)");
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(true);
-  const { user, isAuthenticated } = useKindeAuth();
+  const { user, isAuthenticated } = useKindeBrowserClient()
 
 
   const truncateTitle = (title: string) => {
