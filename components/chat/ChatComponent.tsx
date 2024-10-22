@@ -250,6 +250,8 @@ const Chat: React.FC = () => {
         if (isAuthenticated && user) {
           // Kinde user is authenticated
           const authUser = user;
+          console.log('USER DATA')
+          console.log(user)
           setCurrentUserId(authUser.id);
   
           // Check if user exists in the users table or create a new entry
