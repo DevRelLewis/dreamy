@@ -135,70 +135,66 @@ const theme = createTheme({
 
 const checkOrCreateUser = async (kindeUser: any) => {
   try {
-    const authUser = {
-      id: kindeUser.id,
-      email: kindeUser.email,
-      first_name: kindeUser.given_name || '',
-      last_name: kindeUser.family_name || '',
-    };
-
-    if (!authUser.email) {
-      console.error('Kinde user email is missing.');
+    if (!kindeUser?.email) {
+      console.error('Kinde user email is missing');
       return null;
     }
 
-    console.log('Auth User:', authUser);
-
-    // Check if user exists in the users table using email
-    const { data, error } = await supabase
+    // First check if user exists by email
+    const { data: existingUser, error: searchError } = await supabase
       .from('users')
       .select('*')
-      .eq('email', authUser.email.toLowerCase())
+      .eq('email', kindeUser.email.toLowerCase())
       .single();
 
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error checking user:', error);
+    if (searchError && searchError.code !== 'PGRST116') {
+      console.error('Error checking for existing user:', searchError);
       return null;
     }
 
-    if (data) {
-      // User exists, return their data
-      console.log('User found in Supabase:', data);
-      return data;
-    } else {
-      // User doesn't exist, create new user
-      const newUser = {
-        first_name: authUser.first_name,
-        last_name: authUser.last_name,
-        email: authUser.email.toLowerCase(),
-        token_balance: 250,
-        tokens_spent: 0,
-        is_subscribed: false,
-        kinde_user_id: authUser.id,
-      };
+    if (existingUser) {
+      // Update the existing user's Kinde ID if it's missing
+      if (!existingUser.kinde_user_id) {
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ kinde_user_id: kindeUser.id })
+          .eq('id', existingUser.id);
 
-      const { data: insertedUser, error: insertError } = await supabase
-        .from('users')
-        .insert(newUser)
-        .select('*')
-        .single();
-
-      if (insertError) {
-        console.error('Error creating user:', insertError);
-        return null;
+        if (updateError) {
+          console.error('Error updating Kinde ID:', updateError);
+        }
       }
-
-      console.log('New user created in Supabase:', insertedUser);
-      return insertedUser;
+      return existingUser;
     }
+
+    // Create new user if none exists
+    const newUser = {
+      first_name: kindeUser.given_name || '',
+      last_name: kindeUser.family_name || '',
+      email: kindeUser.email.toLowerCase(),
+      token_balance: 250,
+      tokens_spent: 0,
+      is_subscribed: false,
+      kinde_user_id: kindeUser.id,
+    };
+
+    const { data: insertedUser, error: insertError } = await supabase
+      .from('users')
+      .insert(newUser)
+      .select('*')
+      .single();
+
+    if (insertError) {
+      console.error('Error creating user:', insertError);
+      return null;
+    }
+
+    return insertedUser;
   } catch (err) {
     console.error('Exception in checkOrCreateUser:', err);
     return null;
   }
 };
-
-
-
 
 const Chat: React.FC = (serverUser: any) => {
   const [messages, setMessages] = useState<Message[]>([]);

@@ -19,6 +19,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Prompt and userId are required' }, { status: 400 });
     }
 
+    // Verify user exists before proceeding
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      console.error('User not found:', userError);
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
     const image = await openai.images.generate({
       model: "dall-e-3",
       prompt: prompt,
@@ -33,23 +45,22 @@ export async function POST(req: Request) {
       throw new Error('Failed to generate image: No base64 data received');
     }
 
-    // Convert base64 to buffer
     const imageBuffer = Buffer.from(base64Image, 'base64');
-
-    // Generate a unique filename
     const filename = `dream_image_${Date.now()}.png`;
     const filePath = `${userId}/${filename}`;
 
-    // Upload to Supabase storage
-    const { data, error } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('dream-images')
       .upload(filePath, imageBuffer, {
-        contentType: 'image/png'
+        contentType: 'image/png',
+        upsert: false
       });
 
-    if (error) throw error;
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      throw uploadError;
+    }
 
-    // Get public URL
     const { data: publicUrlData } = supabase.storage
       .from('dream-images')
       .getPublicUrl(filePath);
