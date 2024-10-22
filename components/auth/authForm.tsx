@@ -21,7 +21,6 @@ import google from '../../app/public/google.png'
 import apple from "../../app/public/apple.png"
 import twitter from "../../app/public/twitter.png"
 import NextImage from 'next/image'
-import { signIn } from 'next-auth/react'
 import {RegisterLink, LoginLink} from "@kinde-oss/kinde-auth-nextjs/components";
 
 
