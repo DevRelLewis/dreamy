@@ -133,56 +133,70 @@ const theme = createTheme({
   },
 });
 
-const checkOrCreateUser = async (kindeUser: KindeUser): Promise<UserData | null> => {
-  const authUser = {
-    id: kindeUser.id,
-    email: kindeUser.email,
-    first_name: kindeUser.given_name || '',
-    last_name: kindeUser.family_name || '',
-  };
-
-  // Check if user exists in the users table using email
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('email', authUser.email)
-    .single();
-
-  if (error && error.code !== 'PGRST116') {
-    console.error('Error checking user:', error);
-    return null;
-  }
-
-  if (data) {
-    // User exists, return their data
-    return data;
-  } else {
-    // User doesn't exist, create new user
-    const newUser = {
-      // Let Supabase generate the user ID
-      first_name: authUser.first_name,
-      last_name: authUser.last_name,
-      email: authUser.email,
-      token_balance: 250,
-      tokens_spent: 0,
-      is_subscribed: false,
-      // Optionally store Kinde user ID for reference
-      kinde_user_id: authUser.id,
+const checkOrCreateUser = async (kindeUser: any) => {
+  try {
+    const authUser = {
+      id: kindeUser.id,
+      email: kindeUser.email,
+      first_name: kindeUser.given_name || '',
+      last_name: kindeUser.family_name || '',
     };
 
-    const { data: insertedUser, error: insertError } = await supabase
-      .from('users')
-      .insert(newUser)
-      .single();
-
-    if (insertError) {
-      console.error('Error creating user:', insertError);
+    if (!authUser.email) {
+      console.error('Kinde user email is missing.');
       return null;
     }
 
-    return insertedUser;
+    console.log('Auth User:', authUser);
+
+    // Check if user exists in the users table using email
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', authUser.email.toLowerCase())
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error checking user:', error);
+      return null;
+    }
+
+    if (data) {
+      // User exists, return their data
+      console.log('User found in Supabase:', data);
+      return data;
+    } else {
+      // User doesn't exist, create new user
+      const newUser = {
+        first_name: authUser.first_name,
+        last_name: authUser.last_name,
+        email: authUser.email.toLowerCase(),
+        token_balance: 250,
+        tokens_spent: 0,
+        is_subscribed: false,
+        kinde_user_id: authUser.id,
+      };
+
+      const { data: insertedUser, error: insertError } = await supabase
+        .from('users')
+        .insert(newUser)
+        .select('*')
+        .single();
+
+      if (insertError) {
+        console.error('Error creating user:', insertError);
+        return null;
+      }
+
+      console.log('New user created in Supabase:', insertedUser);
+      return insertedUser;
+    }
+  } catch (err) {
+    console.error('Exception in checkOrCreateUser:', err);
+    return null;
   }
 };
+
 
 
 
@@ -248,8 +262,7 @@ const Chat: React.FC = (serverUser: any) => {
   useEffect(() => {
     const fetchUserAndData = async () => {
       setLoading(true);
-      console.log('USER');
-      console.log(user);
+      console.log('USER:', user);
   
       try {
         if (isAuthenticated && user) {
@@ -258,27 +271,36 @@ const Chat: React.FC = (serverUser: any) => {
   
           // Check if user exists in the users table or create a new entry
           const userData = await checkOrCreateUser(authUser);
-          if (userData) {
+          if (userData && userData.id) {
             setUserData(userData);
             setCurrentUserId(userData.id); // Use Supabase user ID
+            console.log('Current User ID:', userData.id);
   
             // Set the subscription status based on the is_subscribed field
             setIsSubscriptionActive(userData.is_subscribed);
+  
+            // Fetch dream history from Supabase using Supabase user ID
+            const { data: dreamHistoryData, error: dreamHistoryError } =
+              await supabase
+                .from('dream_sessions')
+                .select('id, dream_text, created_at, image_url')
+                .eq('user_id', userData.id) // Use Supabase user ID
+                .order('created_at', { ascending: false });
+  
+            if (dreamHistoryError) {
+              throw dreamHistoryError;
+            }
+  
+            setDreamHistory(dreamHistoryData || []);
+          } else {
+            // Handle case where userData is null or userData.id is undefined
+            console.error('User data not found or userData.id is undefined.');
+            notifications.show({
+              title: 'Error',
+              message: 'Failed to load user data.',
+              color: 'red',
+            });
           }
-  
-          // Fetch dream history from Supabase using Supabase user ID
-          const { data: dreamHistoryData, error: dreamHistoryError } =
-            await supabase
-              .from('dream_sessions')
-              .select('id, dream_text, created_at, image_url')
-              .eq('user_id', userData?.id) // Use Supabase user ID
-              .order('created_at', { ascending: false });
-  
-          if (dreamHistoryError) {
-            throw dreamHistoryError;
-          }
-  
-          setDreamHistory(dreamHistoryData || []);
   
           // Don't automatically set active session or load messages
           setActiveSessionId(null);
@@ -308,9 +330,6 @@ const Chat: React.FC = (serverUser: any) => {
     fetchUserAndData();
   }, [isAuthenticated, user]);
   
-  
-  
-
 
   const handleLogout = () => {
  
