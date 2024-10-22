@@ -141,7 +141,7 @@ const checkOrCreateUser = async (kindeUser: KindeUser): Promise<UserData | null>
     last_name: kindeUser.family_name || '',
   };
 
-  // Check if user exists in the users table
+  // Check if user exists in the users table using email
   const { data, error } = await supabase
     .from('users')
     .select('*')
@@ -159,13 +159,15 @@ const checkOrCreateUser = async (kindeUser: KindeUser): Promise<UserData | null>
   } else {
     // User doesn't exist, create new user
     const newUser = {
-      id: authUser.id,
-      first_name: authUser.first_name || '',
-      last_name: authUser.last_name || '',
+      // Let Supabase generate the user ID
+      first_name: authUser.first_name,
+      last_name: authUser.last_name,
       email: authUser.email,
       token_balance: 250,
       tokens_spent: 0,
-      is_subscribed: false, // Default to false for new users
+      is_subscribed: false,
+      // Optionally store Kinde user ID for reference
+      kinde_user_id: authUser.id,
     };
 
     const { data: insertedUser, error: insertError } = await supabase
@@ -181,6 +183,7 @@ const checkOrCreateUser = async (kindeUser: KindeUser): Promise<UserData | null>
     return insertedUser;
   }
 };
+
 
 
 const Chat: React.FC = (serverUser: any) => {
@@ -245,29 +248,30 @@ const Chat: React.FC = (serverUser: any) => {
   useEffect(() => {
     const fetchUserAndData = async () => {
       setLoading(true);
-      console.log('USER')
-      console.log(user)
-      
+      console.log('USER');
+      console.log(user);
+  
       try {
         if (isAuthenticated && user) {
           // Kinde user is authenticated
           const authUser = user;
-          setCurrentUserId(authUser.id);
   
           // Check if user exists in the users table or create a new entry
           const userData = await checkOrCreateUser(authUser);
           if (userData) {
             setUserData(userData);
+            setCurrentUserId(userData.id); // Use Supabase user ID
+  
             // Set the subscription status based on the is_subscribed field
             setIsSubscriptionActive(userData.is_subscribed);
           }
   
-          // Fetch dream history from Supabase
+          // Fetch dream history from Supabase using Supabase user ID
           const { data: dreamHistoryData, error: dreamHistoryError } =
             await supabase
               .from('dream_sessions')
               .select('id, dream_text, created_at, image_url')
-              .eq('user_id', authUser.id)
+              .eq('user_id', userData?.id) // Use Supabase user ID
               .order('created_at', { ascending: false });
   
           if (dreamHistoryError) {
@@ -303,6 +307,7 @@ const Chat: React.FC = (serverUser: any) => {
   
     fetchUserAndData();
   }, [isAuthenticated, user]);
+  
   
   
 
