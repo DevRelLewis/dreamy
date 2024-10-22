@@ -44,11 +44,9 @@ import {
   estimateTokenCost,
 } from "../../components/utils/tokenUtils/TokenUtility";
 import classes from "./page.module.css";
-import { useSession, signOut } from "next-auth/react"
 
 
 const lobster = Lobster({ weight: "400", subsets: ["latin"] });
-const { data: session, status } = useSession()
 
 type Message = {
   id: string;
@@ -304,7 +302,7 @@ const Chat: React.FC = () => {
 
 
   const handleLogout = () => {
-    signOut()
+ 
   }
 
   const handleDisclaimerClose = () => {
