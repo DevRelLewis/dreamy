@@ -45,8 +45,6 @@ import {
 } from "../../components/utils/tokenUtils/TokenUtility";
 import classes from "./page.module.css";
 import { useKindeAuth } from "@kinde-oss/kinde-auth-nextjs";
-
-const {getUser} = useKindeAuth();
 const lobster = Lobster({ weight: "400", subsets: ["latin"] });
 
 type KindeUser = {
