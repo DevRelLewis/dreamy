@@ -44,10 +44,9 @@ import {
   estimateTokenCost,
 } from "../../components/utils/tokenUtils/TokenUtility";
 import classes from "./page.module.css";
-import {getKindeServerSession} from "@kinde-oss/kinde-auth-nextjs/server";
 import { useKindeAuth } from "@kinde-oss/kinde-auth-nextjs";
 
-const {getUser} = getKindeServerSession();
+const {getUser} = useKindeAuth();
 const lobster = Lobster({ weight: "400", subsets: ["latin"] });
 
 type KindeUser = {
