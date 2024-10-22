@@ -44,9 +44,21 @@ import {
   estimateTokenCost,
 } from "../../components/utils/tokenUtils/TokenUtility";
 import classes from "./page.module.css";
+import {getKindeServerSession} from "@kinde-oss/kinde-auth-nextjs/server";
+import { useKindeAuth } from "@kinde-oss/kinde-auth-nextjs";
 
-
+const {getUser} = getKindeServerSession();
 const lobster = Lobster({ weight: "400", subsets: ["latin"] });
+
+type KindeUser = {
+  id: string;
+  email: string | null;
+  given_name: string | null;
+  family_name: string | null;
+  picture?: string | null;
+  // Include other properties if necessary
+};
+
 
 type Message = {
   id: string;
@@ -77,7 +89,6 @@ type DreamSession = {
   image_url: string;
 };
 
-type User = {}
 
 const theme = createTheme({
   primaryColor: "blue",
@@ -125,28 +136,35 @@ const theme = createTheme({
   },
 });
 
-const checkOrCreateUser = async (authUser: any): Promise<UserData | null> => {
+const checkOrCreateUser = async (kindeUser: KindeUser): Promise<UserData | null> => {
+  const authUser = {
+    id: kindeUser.id,
+    email: kindeUser.email,
+    first_name: kindeUser.given_name || '',
+    last_name: kindeUser.family_name || '',
+  };
+
   // Check if user exists in the users table
   const { data, error } = await supabase
-    .from("users")
-    .select("*")
-    .eq("email", authUser.email)
+    .from('users')
+    .select('*')
+    .eq('email', authUser.email)
     .single();
 
-  if (error && error.code !== "PGRST116") {
-    console.error("Error checking user:", error);
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error checking user:', error);
     return null;
   }
 
   if (data) {
     // User exists, return their data
-    return data as UserData;
+    return data;
   } else {
     // User doesn't exist, create new user
     const newUser = {
       id: authUser.id,
-      first_name: authUser.user_metadata?.first_name || "",
-      last_name: authUser.user_metadata?.last_name || "",
+      first_name: authUser.first_name || '',
+      last_name: authUser.last_name || '',
       email: authUser.email,
       token_balance: 250,
       tokens_spent: 0,
@@ -154,18 +172,19 @@ const checkOrCreateUser = async (authUser: any): Promise<UserData | null> => {
     };
 
     const { data: insertedUser, error: insertError } = await supabase
-      .from("users")
+      .from('users')
       .insert(newUser)
       .single();
 
     if (insertError) {
-      console.error("Error creating user:", insertError);
+      console.error('Error creating user:', insertError);
       return null;
     }
 
-    return newUser;
+    return insertedUser;
   }
 };
+
 
 const Chat: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -197,10 +216,8 @@ const Chat: React.FC = () => {
   const [isFirstMessage, setIsFirstMessage] = useState(true);
   const isTablet = useMediaQuery("(max-width: 1024px) and (max-height: 790px)");
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(true);
-  const [user, setUser] = useState<User | null>(
-    null
-  );
-  const [session, setSession] = useState(null);
+  const { user, isAuthenticated } = useKindeAuth();
+
 
   const truncateTitle = (title: string) => {
     const words = title.split(" ");
@@ -231,48 +248,41 @@ const Chat: React.FC = () => {
   useEffect(() => {
     const fetchUserAndData = async () => {
       setLoading(true);
-
+  
       try {
-        const handleDisclaimerClose = () => {
-          setIsDisclaimerOpen(false);
-          localStorage.setItem("hasSeenDisclaimer", "true");
-        };
-
-        // Get the current authenticated user
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (user) {
-          setCurrentUserId(user.id);
-
+        if (isAuthenticated && user) {
+          // Kinde user is authenticated
+          const authUser = user;
+          setCurrentUserId(authUser.id);
+  
           // Check if user exists in the users table or create a new entry
-          const userData = await checkOrCreateUser(user);
+          const userData = await checkOrCreateUser(authUser);
           if (userData) {
             setUserData(userData);
             // Set the subscription status based on the is_subscribed field
             setIsSubscriptionActive(userData.is_subscribed);
           }
-
+  
+          // Fetch dream history from Supabase
           const { data: dreamHistoryData, error: dreamHistoryError } =
             await supabase
-              .from("dream_sessions")
-              .select("id, dream_text, created_at, image_url")
-              .eq("user_id", user.id)
-              .order("created_at", { ascending: false });
-
+              .from('dream_sessions')
+              .select('id, dream_text, created_at, image_url')
+              .eq('user_id', authUser.id)
+              .order('created_at', { ascending: false });
+  
           if (dreamHistoryError) {
             throw dreamHistoryError;
           }
-
+  
           setDreamHistory(dreamHistoryData || []);
-
+  
           // Don't automatically set active session or load messages
           setActiveSessionId(null);
           setMessages([]);
         } else {
-          // Handle case where there is no authenticated user
-          console.log("No authenticated user found");
+          // User is not authenticated
+          console.log('No authenticated user found');
           setCurrentUserId(null);
           setUserData(null);
           setIsSubscriptionActive(false);
@@ -281,24 +291,21 @@ const Chat: React.FC = () => {
           setActiveSessionId(null);
         }
       } catch (error) {
-        console.error("Error fetching user data and history:", error);
+        console.error('Error fetching user data and history:', error);
         notifications.show({
-          title: "Error",
-          message: "Failed to load user data and dream history.",
-          color: "red",
+          title: 'Error',
+          message: 'Failed to load user data and dream history.',
+          color: 'red',
         });
       } finally {
         setLoading(false);
       }
     };
-
+  
     fetchUserAndData();
-
-    
-    return () => {
-      // No cleanup needed in this case
-    };
-  }, []);
+  }, [isAuthenticated, user]);
+  
+  
 
 
   const handleLogout = () => {
