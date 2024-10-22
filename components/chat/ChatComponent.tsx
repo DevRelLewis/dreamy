@@ -45,6 +45,8 @@ import {
 } from "../../components/utils/tokenUtils/TokenUtility";
 import classes from "./page.module.css";
 import { useKindeAuth } from "@kinde-oss/kinde-auth-nextjs";
+import { getUser } from "@/supabase/kindeUser";
+
 const lobster = Lobster({ weight: "400", subsets: ["latin"] });
 
 type KindeUser = {
@@ -245,7 +247,7 @@ const Chat: React.FC = () => {
   useEffect(() => {
     const fetchUserAndData = async () => {
       setLoading(true);
-  
+      const user = await getUser();
       try {
         if (isAuthenticated && user) {
           // Kinde user is authenticated
