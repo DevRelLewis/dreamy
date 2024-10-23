@@ -14,9 +14,9 @@ const supabase = createClient(
 
 const ASSISTANT_ID = 'asst_7Y5Exec5MCiqPUKWn12cqDA8';
 
-export const config = {
-  maxDuration: 300 // Set maximum duration to 5 minutes
-};
+// export const config = {
+//   maxDuration: 300 // Set maximum duration to 5 minutes
+// };
 
 export async function POST(req: NextRequest) {
   try {
