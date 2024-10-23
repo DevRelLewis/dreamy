@@ -12,10 +12,6 @@ const supabase = createClient(
   process.env.SUPABASE_KEY!
 );
 
-// export const config = {
-//   maxDuration: 300 // Set maximum duration to 5 minutes
-// };
-
 export async function POST(req: NextRequest) {
   try {
     // Validate environment variables
