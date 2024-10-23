@@ -90,8 +90,36 @@ const AuthForm: React.FC = () => {
             </Alert>
           )}
 
-        <LoginLink postLoginRedirectURL="/chat">Sign in</LoginLink>
-        <RegisterLink postLoginRedirectURL="/chat">Sign up</RegisterLink>
+          <Flex direction="column" align="center" gap="md">
+            <LoginLink 
+              className="rounded-md px-4 py-2"
+              style={{
+                backgroundColor: '#7e57c2', // This purple matches one of the gradient colors
+                color: 'white',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                textDecoration: 'none',
+                width: '200px',
+                textAlign: 'center'
+              }}
+              postLoginRedirectURL="/chat">
+              Sign in
+            </LoginLink>
+            <RegisterLink 
+              className="rounded-md px-4 py-2"
+              style={{
+                backgroundColor: '#7e57c2', // This purple matches one of the gradient colors
+                color: 'white',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                textDecoration: 'none',
+                width: '200px',
+                textAlign: 'center'
+              }}
+              postLoginRedirectURL="/chat">
+              Sign up
+            </RegisterLink>
+          </Flex>
         </Paper>
       </Container>
     </Center>
