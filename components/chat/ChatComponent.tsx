@@ -256,40 +256,39 @@ const Chat: React.FC = (serverUser: any) => {
   };
 
   useEffect(() => {
-    const fetchUserAndData = async () => {
+    const fetchUserAndData = async (): Promise<void> => {
       setLoading(true);
       console.log('USER:', user);
-  
+    
       try {
         if (isAuthenticated && user) {
           // Kinde user is authenticated
-          const authUser = user;
-  
+          const authUser = user as KindeUser;
+    
           // Check if user exists in the users table or create a new entry
           const userData = await checkOrCreateUser(authUser);
           if (userData && userData.id) {
             setUserData(userData);
-            setCurrentUserId(userData.id); // Use Supabase user ID
+            setCurrentUserId(userData.id);
             console.log('Current User ID:', userData.id);
-  
+    
             // Set the subscription status based on the is_subscribed field
             setIsSubscriptionActive(userData.is_subscribed);
-  
+    
             // Fetch dream history from Supabase using Supabase user ID
             const { data: dreamHistoryData, error: dreamHistoryError } =
               await supabase
                 .from('dream_sessions')
                 .select('id, dream_text, created_at, image_url')
-                .eq('user_id', userData.id) // Use Supabase user ID
+                .eq('user_id', userData.id)
                 .order('created_at', { ascending: false });
-  
+    
             if (dreamHistoryError) {
               throw dreamHistoryError;
             }
-  
+    
             setDreamHistory(dreamHistoryData || []);
           } else {
-            // Handle case where userData is null or userData.id is undefined
             console.error('User data not found or userData.id is undefined.');
             notifications.show({
               title: 'Error',
@@ -297,8 +296,8 @@ const Chat: React.FC = (serverUser: any) => {
               color: 'red',
             });
           }
-  
-          // Don't automatically set active session or load messages
+    
+          // Reset session and messages
           setActiveSessionId(null);
           setMessages([]);
         } else {
@@ -315,7 +314,7 @@ const Chat: React.FC = (serverUser: any) => {
         console.error('Error fetching user data and history:', error);
         notifications.show({
           title: 'Error',
-          message: 'Failed to load user data and dream history.',
+          message: `Failed to load user data and dream history: ${error instanceof Error ? error.message : 'Unknown error'}`,
           color: 'red',
         });
       } finally {
@@ -336,7 +335,7 @@ const Chat: React.FC = (serverUser: any) => {
     localStorage.setItem("hasSeenDisclaimer", "true");
   };
 
-  const loadDreamSession = async (sessionId: string) => {
+  const loadDreamSession = async (sessionId: string): Promise<void> => {
     setLoading(true);
     try {
       const { data: sessionData, error: sessionError } = await supabase
@@ -344,14 +343,14 @@ const Chat: React.FC = (serverUser: any) => {
         .select("messages, image_url")
         .eq("id", sessionId)
         .single();
-
+  
       if (sessionError) {
         throw sessionError;
       }
-
+  
       if (sessionData && sessionData.messages) {
-        const formattedMessages: Message[] = sessionData.messages.flat();
-
+        const formattedMessages: Message[] = sessionData.messages;
+  
         // Ensure the image URL is set for the first assistant message
         const firstAssistantMessageIndex = formattedMessages.findIndex(
           (msg) => msg.user_id === "assistant"
@@ -360,7 +359,7 @@ const Chat: React.FC = (serverUser: any) => {
           formattedMessages[firstAssistantMessageIndex].imageUrl =
             sessionData.image_url;
         }
-
+  
         setMessages(formattedMessages);
         setActiveSessionId(sessionId);
       }
@@ -368,7 +367,7 @@ const Chat: React.FC = (serverUser: any) => {
       console.error("Error loading dream session:", error);
       notifications.show({
         title: "Error",
-        message: "Failed to load dream session.",
+        message: `Failed to load dream session: ${error instanceof Error ? error.message : 'Unknown error'}`,
         color: "red",
       });
     } finally {
@@ -381,10 +380,10 @@ const Chat: React.FC = (serverUser: any) => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (): Promise<void> => {
     if (newMessage.trim() === "") return;
     setSending(true);
-
+  
     if (!currentUserId || !userData) {
       notifications.show({
         title: "Unauthorized",
@@ -394,7 +393,7 @@ const Chat: React.FC = (serverUser: any) => {
       setSending(false);
       return;
     }
-
+  
     try {
       // Process token transaction
       const transactionSuccess = await processTokenTransaction(
@@ -404,26 +403,30 @@ const Chat: React.FC = (serverUser: any) => {
       if (!transactionSuccess) {
         throw new Error("Insufficient tokens");
       }
-
+  
       let imageUrl: string | undefined;
-
-      // Generate and save DALL-E image only if it's a new session (no activeSessionId)
+  
+      // Generate and save DALL-E image only if it's a new session
       if (!activeSessionId) {
         const imageResponse = await fetch("/api/dalle", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ prompt: newMessage, userId: currentUserId }),
         });
+  
         if (imageResponse.ok) {
-          const imageData = await imageResponse.json();
+          const imageData: { imageUrl: string } = await imageResponse.json();
           imageUrl = imageData.imageUrl;
         }
       }
-
+  
       // Send message to API
       const response = await fetch("/api/dreamy", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
         body: JSON.stringify({
           prompt: newMessage,
           userId: currentUserId,
@@ -431,23 +434,24 @@ const Chat: React.FC = (serverUser: any) => {
           imageUrl: imageUrl,
         }),
       });
-
+  
       if (!response.ok) {
-        throw new Error("Failed to get assistant response");
+        const errorData = await response.text();
+        throw new Error(`Failed to get assistant response: ${errorData}`);
       }
-
-      const data = await response.json();
-
+  
+      const data: { reply: string; sessionId: string } = await response.json();
+  
       // Create message objects
-      const userMessage = {
+      const userMessage: Message = {
         id: Date.now().toString(),
         content: newMessage,
         user_id: currentUserId,
         created_at: new Date().toISOString(),
         user: { id: currentUserId, email: userData.email },
       };
-
-      const assistantMessage = {
+  
+      const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: data.reply,
         user_id: "assistant",
@@ -455,24 +459,24 @@ const Chat: React.FC = (serverUser: any) => {
         user: { id: "assistant", email: "assistant@example.com" },
         imageUrl: imageUrl,
       };
-
+  
       // First, get the current messages array
       const { data: currentSessionData, error: fetchError } = await supabase
         .from("dream_sessions")
         .select("messages")
         .eq("id", data.sessionId)
         .single();
-
+  
       if (fetchError && fetchError.code !== "PGRST116") {
         throw fetchError;
       }
-
+  
       // Prepare the new messages array
-      const updatedMessages = currentSessionData?.messages || [];
+      const updatedMessages: Message[] = currentSessionData?.messages || [];
       updatedMessages.push(userMessage, assistantMessage);
-
-      // Update or create session in Supabase
-      const { data: sessionData, error: sessionError } = await supabase
+  
+      // Update session in Supabase
+      const { error: sessionError } = await supabase
         .from("dream_sessions")
         .upsert(
           {
@@ -480,59 +484,41 @@ const Chat: React.FC = (serverUser: any) => {
             user_id: currentUserId,
             messages: updatedMessages,
             image_url: imageUrl,
+            dream_text: newMessage
           },
           { onConflict: "id" }
         );
-
+  
       if (sessionError) {
         throw sessionError;
       }
-
-      // Add messages to UI
-      setMessages((prev) => [...prev, userMessage, assistantMessage]);
-
-      // Set the active session ID
+  
+      // Update UI state
+      setMessages(updatedMessages);
       setActiveSessionId(data.sessionId);
-
+  
       // Update user's token balance in the UI
       const tokenCost = estimateTokenCost(newMessage);
-      setUserData((prevData) => ({
-        ...prevData!,
-        token_balance: prevData!.token_balance - tokenCost,
-      }));
-
-      // Refresh dream history
-      await refreshDreamHistory();
-
-      // Clear input and scroll to bottom
+      setUserData((prevData) => prevData ? {
+        ...prevData,
+        token_balance: prevData.token_balance - tokenCost,
+      } : null);
+  
+      // Clear input and update state
       setNewMessage("");
       scrollToBottom();
+  
     } catch (error) {
       console.error("Error sending message:", error);
       notifications.show({
         title: "Error",
-        message: "Failed to send message. Please try again.",
+        message: `Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`,
         color: "red",
       });
     } finally {
       setSending(false);
     }
   };
-
-  const refreshDreamHistory = async () => {
-    const { data: newHistory, error } = await supabase
-      .from("dream_sessions")
-      .select("id, dream_text, created_at, image_url") // Add image_url here
-      .eq("user_id", currentUserId)
-      .order("created_at", { ascending: false });
-
-    if (!error) {
-      setDreamHistory(newHistory || []);
-    } else {
-      console.error("Error refreshing dream history:", error);
-    }
-  };
-
 
   return (
     <MantineProvider theme={theme}>
