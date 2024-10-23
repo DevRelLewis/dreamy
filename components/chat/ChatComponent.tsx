@@ -323,7 +323,7 @@ const Chat: React.FC = (serverUser: any) => {
     };
   
     fetchUserAndData();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, messages]);
   
 
   const handleLogout = () => {
