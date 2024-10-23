@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+// dalle.ts
+import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 
@@ -11,8 +12,17 @@ const supabase = createClient(
   process.env.SUPABASE_KEY!
 );
 
-export async function POST(req: Request) {
+export const config = {
+  maxDuration: 300 // Set maximum duration to 5 minutes
+};
+
+export async function POST(req: NextRequest) {
   try {
+    // Validate environment variables
+    if (!process.env.OPENAI_API_KEY || !process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
+      throw new Error('Missing required environment variables');
+    }
+
     const { prompt, userId } = await req.json();
 
     if (!prompt || !userId) {
@@ -57,8 +67,7 @@ export async function POST(req: Request) {
       });
 
     if (uploadError) {
-      console.error('Upload error:', uploadError);
-      throw uploadError;
+      throw new Error(`Failed to upload image: ${uploadError.message}`);
     }
 
     const { data: publicUrlData } = supabase.storage
@@ -68,6 +77,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ imageUrl: publicUrlData.publicUrl });
   } catch (error) {
     console.error('Error:', error);
-    return NextResponse.json({ error: 'Failed to generate and save image' }, { status: 500 });
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : 'Failed to generate and save image',
+      details: error instanceof Error ? error.stack : undefined
+    }, { status: 500 });
   }
 }

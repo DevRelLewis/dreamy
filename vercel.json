@@ -1,6 +1,11 @@
 {
-    "crons": [{
-      "path": "/api/cron/monthly-token-distribution",
-      "schedule": "0 1 1 * *"
-    }]
+  "crons": [{
+    "path": "/api/cron/monthly-token-distribution",
+    "schedule": "0 1 1 * *"
+  }],
+  "functions": {
+    "api/*.ts": {
+      "maxDuration": 300
+    }
   }
+}

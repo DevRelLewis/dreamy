@@ -1,3 +1,4 @@
+// dreamy.ts
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
@@ -13,8 +14,17 @@ const supabase = createClient(
 
 const ASSISTANT_ID = 'asst_7Y5Exec5MCiqPUKWn12cqDA8';
 
+export const config = {
+  maxDuration: 300 // Set maximum duration to 5 minutes
+};
+
 export async function POST(req: NextRequest) {
   try {
+    // Validate environment variables
+    if (!process.env.OPENAI_API_KEY || !process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
+      throw new Error('Missing required environment variables');
+    }
+
     const { prompt, userId, sessionId } = await req.json();
 
     if (!prompt || !userId) {
@@ -46,12 +56,18 @@ export async function POST(req: NextRequest) {
 
     let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
     let attempts = 0;
-    const maxAttempts = 30; // 30 seconds timeout
+    const maxAttempts = 60; // Increased to 60 seconds
+    const pollInterval = 2000; // Poll every 2 seconds instead of 1
 
     while (runStatus.status !== 'completed' && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
       runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
       attempts++;
+
+      // Check for failed or cancelled status
+      if (runStatus.status === 'failed' || runStatus.status === 'cancelled') {
+        throw new Error(`Assistant run ${runStatus.status}: ${runStatus.last_error?.message || 'Unknown error'}`);
+      }
     }
 
     if (attempts >= maxAttempts) {
@@ -74,6 +90,7 @@ export async function POST(req: NextRequest) {
       return acc;
     }, '');
 
+    // Session handling code...
     let newSessionId = sessionId;
 
     if (sessionId) {
@@ -84,8 +101,7 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (fetchError) {
-        console.error('Error fetching existing session:', fetchError);
-        return NextResponse.json({ error: 'Failed to update session' }, { status: 500 });
+        throw new Error(`Failed to fetch session: ${fetchError.message}`);
       }
 
       const { error: updateError } = await supabase
@@ -97,8 +113,7 @@ export async function POST(req: NextRequest) {
         .eq('id', sessionId);
 
       if (updateError) {
-        console.error('Error updating dream session:', updateError);
-        return NextResponse.json({ error: 'Failed to update session' }, { status: 500 });
+        throw new Error(`Failed to update session: ${updateError.message}`);
       }
     } else {
       const { data: insertedSession, error: insertError } = await supabase
@@ -107,14 +122,13 @@ export async function POST(req: NextRequest) {
           user_id: userId,
           dream_text: prompt,
           interpretation: responseContent,
-          messages: [] // Initialize empty messages array
+          messages: []
         })
         .select()
         .single();
 
       if (insertError) {
-        console.error('Error saving dream session:', insertError);
-        return NextResponse.json({ error: 'Failed to create new session' }, { status: 500 });
+        throw new Error(`Failed to create session: ${insertError.message}`);
       }
 
       newSessionId = insertedSession.id;
@@ -127,7 +141,8 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Error:', error);
     return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'Failed to get assistant response'
+      error: error instanceof Error ? error.message : 'Failed to get assistant response',
+      details: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
   }
 }
