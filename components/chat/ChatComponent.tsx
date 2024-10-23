@@ -140,7 +140,6 @@ const checkOrCreateUser = async (kindeUser: any) => {
       return null;
     }
 
-    // First check if user exists by email
     const { data: existingUser, error: searchError } = await supabase
       .from('users')
       .select('*')
