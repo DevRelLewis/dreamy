@@ -9,7 +9,8 @@ import {
   Group,
   Stack,
   Text,
-  LoadingOverlay
+  LoadingOverlay,
+  Alert
 } from '@mantine/core';
 import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
 
@@ -22,10 +23,25 @@ const ContactModal: React.FC<ContactModalProps> = ({ opened, onClose }) => {
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  
+  const resetForm = () => {
+    setSubject('');
+    setMessage('');
+    setStatus('idle');
+    setIsSubmitting(false);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setStatus('idle');
 
     try {
       const response = await fetch('/api/contact', {
@@ -42,12 +58,15 @@ const ContactModal: React.FC<ContactModalProps> = ({ opened, onClose }) => {
       if (!response.ok) {
         throw new Error('Failed to send message');
       }
-      setSubject('');
-      setMessage('');
-      onClose();
+      setStatus('success');
+      
+      // Close modal after success message
+      setTimeout(() => {
+        handleClose();
+      }, 2000);
 
     } catch (error) {
-
+      setStatus('error');
     } finally {
       setIsSubmitting(false);
     }
@@ -56,7 +75,7 @@ const ContactModal: React.FC<ContactModalProps> = ({ opened, onClose }) => {
   return (
     <Modal
       opened={opened}
-      onClose={onClose}
+      onClose={handleClose}
       title={
         <Text size="xl" fw={700} c="#2c2c2c">
           Contact Us
@@ -84,6 +103,25 @@ const ContactModal: React.FC<ContactModalProps> = ({ opened, onClose }) => {
             loaderProps={{ color: '#8da0cb' }}
           />
           
+          {status === 'success' && (
+            <Alert 
+              color="teal" 
+              title="Success!" 
+              icon={<IconCheck size="1.1rem" />}
+            >
+              Your message has been sent successfully.
+            </Alert>
+          )}
+
+          {status === 'error' && (
+            <Alert 
+              color="red" 
+              title="Error" 
+              icon={<IconAlertCircle size="1.1rem" />}
+            >
+              Failed to send message. Please try again.
+            </Alert>
+          )}
           <TextInput
             required
             label="Subject"
@@ -132,7 +170,7 @@ const ContactModal: React.FC<ContactModalProps> = ({ opened, onClose }) => {
           <Group justify="flex-end" mt="md">
             <Button
               variant="light"
-              onClick={onClose}
+              onClick={handleClose}
               styles={{
                 root: {
                   backgroundColor: 'rgba(179, 229, 252, 0.8)',

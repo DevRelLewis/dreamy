@@ -202,6 +202,7 @@ const Chat: React.FC = (serverUser: any) => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [contactModalOpened, setContactModalOpened] = useState(false);
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
   const [isSubscriptionActive, setIsSubscriptionActive] =
     useState<boolean>(true);
