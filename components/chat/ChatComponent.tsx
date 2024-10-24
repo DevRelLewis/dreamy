@@ -225,7 +225,6 @@ const Chat: React.FC = (serverUser: any) => {
   const [isFirstMessage, setIsFirstMessage] = useState(true);
   const isTablet = useMediaQuery("(max-width: 1024px) and (max-height: 790px)");
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(true);
-  const [contactModalOpened, setContactModalOpened] = useState(false);
   const { user, isAuthenticated } = useKindeBrowserClient()
 
 
