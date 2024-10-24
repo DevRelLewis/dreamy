@@ -1,5 +1,5 @@
 'use client'
-        
+
 import React, { useState } from 'react';
 import {
   Modal,
@@ -11,7 +11,6 @@ import {
   Text,
   LoadingOverlay
 } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
 import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
 
 interface ContactModalProps {
@@ -43,41 +42,12 @@ const ContactModal: React.FC<ContactModalProps> = ({ opened, onClose }) => {
       if (!response.ok) {
         throw new Error('Failed to send message');
       }
-
-      notifications.show({
-        title: 'Success',
-        message: 'Your message has been sent successfully!',
-        color: 'teal',
-        icon: <IconCheck size="1.1rem" />,
-        styles: {
-          root: {
-            backgroundColor: 'rgba(179, 229, 252, 0.9)',
-            borderColor: '#9fa8da',
-          },
-          title: { color: '#2c2c2c' },
-          description: { color: '#2c2c2c' },
-        },
-      });
-
       setSubject('');
       setMessage('');
       onClose();
 
     } catch (error) {
-      notifications.show({
-        title: 'Error',
-        message: 'Failed to send message. Please try again.',
-        color: 'red',
-        icon: <IconAlertCircle size="1.1rem" />,
-        styles: {
-          root: {
-            backgroundColor: 'rgba(255, 205, 210, 0.9)',
-            borderColor: '#ef9a9a',
-          },
-          title: { color: '#c62828' },
-          description: { color: '#c62828' },
-        },
-      });
+
     } finally {
       setIsSubmitting(false);
     }
