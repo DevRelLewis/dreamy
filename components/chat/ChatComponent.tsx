@@ -45,6 +45,7 @@ import {
 } from "../../components/utils/tokenUtils/TokenUtility";
 import classes from "./page.module.css";
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
+import ContactModal from '../../components/contactModal/contactModal';
 const lobster = Lobster({ weight: "400", subsets: ["latin"] });
 
 type KindeUser = {
@@ -225,6 +226,7 @@ const Chat: React.FC = (serverUser: any) => {
   const [isFirstMessage, setIsFirstMessage] = useState(true);
   const isTablet = useMediaQuery("(max-width: 1024px) and (max-height: 790px)");
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(true);
+  const [contactModalOpened, setContactModalOpened] = useState(false);
   const { user, isAuthenticated } = useKindeBrowserClient()
 
 
@@ -1083,6 +1085,10 @@ const Chat: React.FC = (serverUser: any) => {
           onClose={() => setIsSubscriptionModalOpen(false)}
           title="Manage Subscription"
         >
+          <ContactModal 
+          opened={contactModalOpened}
+          onClose={() => setContactModalOpened(false)}
+          />
           <Stack>
             {isSubscriptionActive ? (
               <Flex direction="row" align="center" gap="10px">
