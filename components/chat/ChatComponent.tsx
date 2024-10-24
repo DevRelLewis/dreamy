@@ -235,8 +235,6 @@ const Chat: React.FC = (serverUser: any) => {
     return words.length > 4 ? words.slice(0, 6).join(" ") + "..." : title;
   };
 
-  const router = useRouter();
-
   const handleManageSubscription = () => {
     setIsLoading(true);
     try {
