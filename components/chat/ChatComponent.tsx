@@ -255,35 +255,28 @@ const Chat: React.FC = (serverUser: any) => {
   useEffect(() => {
     const fetchUserAndData = async (): Promise<void> => {
       setLoading(true);
-      console.log('USER:', user);
-    
+      
       try {
         if (isAuthenticated && user) {
-          // Kinde user is authenticated
           const authUser = user as KindeUser;
-    
-          // Check if user exists in the users table or create a new entry
           const userData = await checkOrCreateUser(authUser);
+          
           if (userData && userData.id) {
             setUserData(userData);
             setCurrentUserId(userData.id);
-            console.log('Current User ID:', userData.id);
-    
-            // Set the subscription status based on the is_subscribed field
             setIsSubscriptionActive(userData.is_subscribed);
-    
-            // Fetch dream history from Supabase using Supabase user ID
-            const { data: dreamHistoryData, error: dreamHistoryError } =
-              await supabase
-                .from('dream_sessions')
-                .select('id, dream_text, created_at, image_url')
-                .eq('user_id', userData.id)
-                .order('created_at', { ascending: false });
-    
+
+            // Fetch dream history only if we have a valid user
+            const { data: dreamHistoryData, error: dreamHistoryError } = await supabase
+              .from('dream_sessions')
+              .select('id, dream_text, created_at, image_url')
+              .eq('user_id', userData.id)
+              .order('created_at', { ascending: false });
+
             if (dreamHistoryError) {
               throw dreamHistoryError;
             }
-    
+
             setDreamHistory(dreamHistoryData || []);
           } else {
             console.error('User data not found or userData.id is undefined.');
@@ -293,17 +286,11 @@ const Chat: React.FC = (serverUser: any) => {
               color: 'red',
             });
           }
-    
-          // Reset session and messages
-          setActiveSessionId(null);
-          setMessages([]);
         } else {
-          // User is not authenticated
-          console.log('No authenticated user found');
+          // Reset state when user is not authenticated
           setCurrentUserId(null);
           setUserData(null);
           setIsSubscriptionActive(false);
-          setMessages([]);
           setDreamHistory([]);
           setActiveSessionId(null);
         }
@@ -318,9 +305,31 @@ const Chat: React.FC = (serverUser: any) => {
         setLoading(false);
       }
     };
-  
+
     fetchUserAndData();
-  }, [isAuthenticated, user, messages]);
+  }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    if (activeSessionId && currentUserId) {
+      const updateSessionMessages = async () => {
+        try {
+          const { error: sessionError } = await supabase
+            .from('dream_sessions')
+            .update({ messages })
+            .eq('id', activeSessionId)
+            .eq('user_id', currentUserId);
+
+          if (sessionError) {
+            throw sessionError;
+          }
+        } catch (error) {
+          console.error('Error updating session messages:', error);
+        }
+      };
+
+      updateSessionMessages();
+    }
+  }, [messages, activeSessionId, currentUserId]);
   
 
   const handleLogout = () => {
