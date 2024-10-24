@@ -54,7 +54,6 @@ type KindeUser = {
   given_name: string | null;
   family_name: string | null;
   picture?: string | null;
-  // Include other properties if necessary
 };
 
 
