@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Markdown from "react-markdown";
 import DisclaimerModal from "../../components/disclaimer/dislaimer";
-import { useRouter } from "next/navigation";
 import {
   Container,
   TextInput,
