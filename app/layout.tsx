@@ -1,8 +1,8 @@
 import '@mantine/core/styles.css';
 import { ColorSchemeScript, MantineProvider } from '@mantine/core';
-import { Shadows_Into_Light_Two } from 'next/font/google';
+import { Merriweather } from 'next/font/google';
 
-const shadows_Into_Light_Two = Shadows_Into_Light_Two({ weight: '400', subsets: ['latin'] });
+const merriweather = Merriweather({ weight: '400', subsets: ['latin'] });
 
 export const metadata = {
   title: 'Dream-San',
@@ -20,7 +20,7 @@ export default function RootLayout({
         <ColorSchemeScript />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body className={shadows_Into_Light_Two.className}>
+      <body className={merriweather.className}>
         <MantineProvider
           theme={{
             fontSizes: {
