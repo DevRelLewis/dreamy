@@ -5,7 +5,6 @@ import Markdown from "react-markdown";
 import DisclaimerModal from "../../components/disclaimer/dislaimer";
 import {
   Container,
-  TextInput,
   Box,
   Textarea,
   Button,
