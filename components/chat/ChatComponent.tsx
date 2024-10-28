@@ -23,7 +23,6 @@ import {
   Card,
   Image,
   Center,
-  AppShellNavbar,
   Burger,
   Flex,
 } from "@mantine/core";
