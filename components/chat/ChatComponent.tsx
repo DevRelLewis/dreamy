@@ -42,7 +42,7 @@ import {
   estimateTokenCost,
 } from "../../components/utils/tokenUtils/TokenUtility";
 import classes from "./page.module.css";
-import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
+import { LogoutLink, useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import ContactModal from '../../components/contactModal/contactModal';
 const lobster = Lobster({ weight: "400", subsets: ["latin"] });
 
@@ -332,7 +332,7 @@ const Chat: React.FC = (serverUser: any) => {
   
 
   const handleLogout = () => {
- 
+    
   }
 
   const handleDisclaimerClose = () => {
@@ -709,14 +709,18 @@ const Chat: React.FC = (serverUser: any) => {
                             },
                           })}
                         >
-                          <Text
-                            size="25px"
-                            fw={500}
-                            span
-                            style={{ color: "black" }}
-                          >
-                            Logout
-                          </Text>
+                          <LogoutLink
+                          className="rounded-md px-4 py-2"
+                          style={{
+                            backgroundColor: '#7e57c2', // This purple matches one of the gradient colors
+                            color: 'white',
+                            borderRadius: '8px',
+                            padding: '8px 16px',
+                            textDecoration: 'none',
+                            width: '200px',
+                            textAlign: 'center'
+                          }}
+                          postLogoutRedirectURL="/">Logout</LogoutLink>
                         </Container>
                       </Menu.Item>
                     </Menu.Dropdown>
