@@ -22,7 +22,6 @@ import {
   Modal,
   Card,
   Image,
-  Center,
   Burger,
   Flex,
 } from "@mantine/core";
