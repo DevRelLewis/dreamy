@@ -1105,10 +1105,19 @@ const Chat: React.FC = (serverUser: any) => {
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
-              width: "100%",
             }}
+            styles={(theme) => ({
+              root: {
+                "&:hover": {
+                  backgroundColor: theme.colors.blue[1],
+                },
+                "&:active": {
+                  backgroundColor: theme.colors.blue[2],
+                },
+              },
+            })}
           >
-            Contact Us
+            Contact Support
           </Button>
 
             {isSubscriptionActive ? (
@@ -1191,7 +1200,10 @@ const Chat: React.FC = (serverUser: any) => {
             </Button>
           </Stack>
         </Modal>
-
+        <ContactModal 
+          opened={contactModalOpened}
+          onClose={() => setContactModalOpened(false)}
+        />
         <Modal
           opened={isTopUpModalOpen}
           onClose={() => {
