@@ -12,7 +12,7 @@ const supabase = createClient(
   process.env.SUPABASE_KEY!
 );
 
-const ASSISTANT_ID = 'asst_7Y5Exec5MCiqPUKWn12cqDA8';
+const ASSISTANT_ID = 'asst_NRLBaEMWXqaqMkykGzWBv4Kt';
 
 export async function POST(req: NextRequest) {
   try {
