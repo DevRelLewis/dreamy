@@ -13,7 +13,6 @@ import {
   ScrollArea,
   Group,
   Loader,
-  ThemeIcon,
   MantineProvider,
   AppShell,
   Avatar,
