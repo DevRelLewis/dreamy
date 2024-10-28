@@ -37,7 +37,6 @@ const ContactModal: React.FC<ContactModalProps> = ({ opened, onClose }) => {
     onClose();
   };
 
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -122,6 +121,7 @@ const ContactModal: React.FC<ContactModalProps> = ({ opened, onClose }) => {
               Failed to send message. Please try again.
             </Alert>
           )}
+
           <TextInput
             required
             label="Subject"

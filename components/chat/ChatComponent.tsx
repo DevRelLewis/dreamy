@@ -1092,11 +1092,26 @@ const Chat: React.FC = (serverUser: any) => {
           onClose={() => setIsSubscriptionModalOpen(false)}
           title="Manage Subscription"
         >
-          <ContactModal 
-          opened={contactModalOpened}
-          onClose={() => setContactModalOpened(false)}
-          />
           <Stack>
+          <Button
+            onClick={() => setContactModalOpened(true)}
+            fullWidth
+            mb="md"
+            style={{
+              backgroundColor: "rgba(179, 229, 252, 0.8)",
+              borderRadius: "8px",
+              padding: "10px 20px",
+              cursor: "pointer",
+              transition: "background-color 0.3s ease",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              width: "100%",
+            }}
+          >
+            Contact Us
+          </Button>
+
             {isSubscriptionActive ? (
               <Flex direction="row" align="center" gap="10px">
                 <Text size="xl">Subscribed: </Text>
