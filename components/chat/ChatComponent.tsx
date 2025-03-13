@@ -24,6 +24,7 @@ import {
   Image,
   Burger,
   Flex,
+  Center
 } from "@mantine/core";
 import { IconSend, IconMessageCircle, IconMenu2 } from "@tabler/icons-react";
 import { supabase } from "../../supabase/supabaseClient";
@@ -39,18 +40,11 @@ import {
   estimateTokenCost,
 } from "../../components/utils/tokenUtils/TokenUtility";
 import classes from "./page.module.css";
-import { LogoutLink, useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
+import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs";
 import ContactModal from '../../components/contactModal/contactModal';
+import { useAuth } from "../auth/auth-provider";
+
 const lobster = Lobster({ weight: "400", subsets: ["latin"] });
-
-type KindeUser = {
-  id: string;
-  email: string | null;
-  given_name: string | null;
-  family_name: string | null;
-  picture?: string | null;
-};
-
 
 type Message = {
   id: string;
@@ -64,23 +58,12 @@ type Message = {
   imageUrl?: string;
 };
 
-type UserData = {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  token_balance: number;
-  tokens_spent: number;
-  is_subscribed: boolean;
-};
-
 type DreamSession = {
   id: string;
   dream_text: string;
   created_at: string;
   image_url: string;
 };
-
 
 const theme = createTheme({
   primaryColor: "blue",
@@ -128,84 +111,21 @@ const theme = createTheme({
   },
 });
 
-const checkOrCreateUser = async (kindeUser: any) => {
-  try {
-    if (!kindeUser?.email) {
-      console.error('Kinde user email is missing');
-      return null;
-    }
-
-    const { data: existingUser, error: searchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', kindeUser.email.toLowerCase())
-      .single();
-
-    if (searchError && searchError.code !== 'PGRST116') {
-      console.error('Error checking for existing user:', searchError);
-      return null;
-    }
-
-    if (existingUser) {
-      // Update the existing user's Kinde ID if it's missing
-      if (!existingUser.kinde_user_id) {
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ kinde_user_id: kindeUser.id })
-          .eq('id', existingUser.id);
-
-        if (updateError) {
-          console.error('Error updating Kinde ID:', updateError);
-        }
-      }
-      return existingUser;
-    }
-
-    // Create new user if none exists
-    const newUser = {
-      first_name: kindeUser.given_name || '',
-      last_name: kindeUser.family_name || '',
-      email: kindeUser.email.toLowerCase(),
-      token_balance: 250,
-      tokens_spent: 0,
-      is_subscribed: false,
-      kinde_user_id: kindeUser.id,
-    };
-
-    const { data: insertedUser, error: insertError } = await supabase
-      .from('users')
-      .insert(newUser)
-      .select('*')
-      .single();
-
-    if (insertError) {
-      console.error('Error creating user:', insertError);
-      return null;
-    }
-
-    return insertedUser;
-  } catch (err) {
-    console.error('Exception in checkOrCreateUser:', err);
-    return null;
-  }
-};
-
-const Chat: React.FC = (serverUser: any) => {
+const Chat: React.FC = () => {
+  // Get user from auth provider
+  const { user, loading: authLoading, updateUser } = useAuth();
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(true);
   const [sending, setSending] = useState<boolean>(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [contactModalOpened, setContactModalOpened] = useState(false);
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
-  const [isSubscriptionActive, setIsSubscriptionActive] =
-    useState<boolean>(true);
+  const [isSubscriptionActive, setIsSubscriptionActive] = useState<boolean>(false);
   const [isToppedUp, setIsToppedUp] = useState<boolean>(false);
-  const [selectedTopUpAmount, setSelectedTopUpAmount] = useState<number | null>(
-    null
-  );
+  const [selectedTopUpAmount, setSelectedTopUpAmount] = useState<number | null>(null);
   const [confirmationModalOpen, setConfirmationModalOpen] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const isMobile = useMediaQuery("(max-width: 768px)");
@@ -214,15 +134,12 @@ const Chat: React.FC = (serverUser: any) => {
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
   const isDesktop = useMediaQuery("(min-width: 768px)");
-  const [userData, setUserData] = useState<UserData | null>(null);
   const [dreamHistory, setDreamHistory] = useState<DreamSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFirstMessage, setIsFirstMessage] = useState(true);
   const isTablet = useMediaQuery("(max-width: 1024px) and (max-height: 790px)");
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(true);
-  const { user, isAuthenticated } = useKindeBrowserClient()
-
 
   const truncateTitle = (title: string) => {
     const words = title.split(" ");
@@ -249,61 +166,40 @@ const Chat: React.FC = (serverUser: any) => {
   };
 
   useEffect(() => {
-    const fetchUserAndData = async (): Promise<void> => {
-      setLoading(true);
+    const fetchDreamHistory = async () => {
+      if (!user || !user.id) return;
       
       try {
-        if (isAuthenticated && user) {
-          const authUser = user as KindeUser;
-          const userData = await checkOrCreateUser(authUser);
-          
-          if (userData && userData.id) {
-            setUserData(userData);
-            setCurrentUserId(userData.id);
-            setIsSubscriptionActive(userData.is_subscribed);
+        // User is already authenticated and data loaded through auth context
+        setCurrentUserId(user.id);
+        setIsSubscriptionActive(user.is_subscribed || false);
 
-            // Fetch dream history only if we have a valid user
-            const { data: dreamHistoryData, error: dreamHistoryError } = await supabase
-              .from('dream_sessions')
-              .select('id, dream_text, created_at, image_url')
-              .eq('user_id', userData.id)
-              .order('created_at', { ascending: false });
+        // Fetch dream history only if we have a valid user
+        const { data: dreamHistoryData, error: dreamHistoryError } = await supabase
+          .from('dream_sessions')
+          .select('id, dream_text, created_at, image_url')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
 
-            if (dreamHistoryError) {
-              throw dreamHistoryError;
-            }
-
-            setDreamHistory(dreamHistoryData || []);
-          } else {
-            console.error('User data not found or userData.id is undefined.');
-            notifications.show({
-              title: 'Error',
-              message: 'Failed to load user data.',
-              color: 'red',
-            });
-          }
-        } else {
-          // Reset state when user is not authenticated
-          setCurrentUserId(null);
-          setUserData(null);
-          setIsSubscriptionActive(false);
-          setDreamHistory([]);
-          setActiveSessionId(null);
+        if (dreamHistoryError) {
+          throw dreamHistoryError;
         }
+
+        setDreamHistory(dreamHistoryData || []);
       } catch (error) {
-        console.error('Error fetching user data and history:', error);
+        console.error('Error fetching dream history:', error);
         notifications.show({
           title: 'Error',
-          message: `Failed to load user data and dream history: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          message: `Failed to load dream history: ${error instanceof Error ? error.message : 'Unknown error'}`,
           color: 'red',
         });
-      } finally {
-        setLoading(false);
       }
     };
 
-    fetchUserAndData();
-  }, [isAuthenticated, user]);
+    if (!authLoading) {
+      fetchDreamHistory();
+    }
+  }, [user, authLoading]);
 
   useEffect(() => {
     if (activeSessionId && currentUserId) {
@@ -326,11 +222,6 @@ const Chat: React.FC = (serverUser: any) => {
       updateSessionMessages();
     }
   }, [messages, activeSessionId, currentUserId]);
-  
-
-  const handleLogout = () => {
-    
-  }
 
   const handleDisclaimerClose = () => {
     setIsDisclaimerOpen(false);
@@ -338,7 +229,7 @@ const Chat: React.FC = (serverUser: any) => {
   };
 
   const loadDreamSession = async (sessionId: string): Promise<void> => {
-    setLoading(true);
+    setIsLoading(true);
     try {
       const { data: sessionData, error: sessionError } = await supabase
         .from("dream_sessions")
@@ -373,7 +264,7 @@ const Chat: React.FC = (serverUser: any) => {
         color: "red",
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
       scrollToBottom();
     }
   };
@@ -386,7 +277,7 @@ const Chat: React.FC = (serverUser: any) => {
     if (newMessage.trim() === "") return;
     setSending(true);
   
-    if (!currentUserId || !userData) {
+    if (!currentUserId || !user) {
       notifications.show({
         title: "Unauthorized",
         message: "You must be signed in to send messages.",
@@ -450,7 +341,7 @@ const Chat: React.FC = (serverUser: any) => {
         content: newMessage,
         user_id: currentUserId,
         created_at: new Date().toISOString(),
-        user: { id: currentUserId, email: userData.email },
+        user: { id: currentUserId, email: user.email },
       };
   
       const assistantMessage: Message = {
@@ -499,12 +390,8 @@ const Chat: React.FC = (serverUser: any) => {
       setMessages(updatedMessages);
       setActiveSessionId(data.sessionId);
   
-      // Update user's token balance in the UI
-      const tokenCost = estimateTokenCost(newMessage);
-      setUserData((prevData) => prevData ? {
-        ...prevData,
-        token_balance: prevData.token_balance - tokenCost,
-      } : null);
+      // Update user's token balance and refresh user data
+      await updateUser();
   
       // Clear input and update state
       setNewMessage("");
@@ -521,6 +408,15 @@ const Chat: React.FC = (serverUser: any) => {
       setSending(false);
     }
   };
+
+  // Show loading state while authentication is in progress
+  if (authLoading) {
+    return (
+      <Center style={{ height: '100vh' }}>
+        <Loader size="xl" color="blue" />
+      </Center>
+    );
+  }
 
   return (
     <MantineProvider theme={theme}>
@@ -587,7 +483,7 @@ const Chat: React.FC = (serverUser: any) => {
                       opacity: 0.7,
                     }}
                   >
-                    Token Balance: {userData?.token_balance}
+                    Token Balance: {user?.token_balance || 0}
                   </Text>
                 </Stack>
               </Group>
@@ -603,26 +499,37 @@ const Chat: React.FC = (serverUser: any) => {
                 >
                   <Menu>
                     <Menu.Target>
-                      <Avatar
-                        color="white"
-                        radius="xl"
-                        style={{
-                          transition: "all 0.2s ease-in-out",
-                          cursor: "pointer",
-                          border: "2.5px solid rgba(255, 255, 255, 0.2)",
+                    <Avatar
+                      color="violet"
+                      radius="xl"
+                      style={{
+                        transition: "all 0.2s ease-in-out",
+                        cursor: "pointer",
+                        border: "2.5px solid rgba(255, 255, 255, 0.2)",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center"
+                      }}
+                    >
+                      <Text 
+                        size="25px" 
+                        style={{ 
+                          display: "flex", 
+                          justifyContent: "center", 
+                          alignItems: "center",
+                          width: "100%",
+                          height: "100%",
+                          margin: 0
                         }}
                       >
-                        <Text size="25px">
-                          {userData?.first_name
-                            ? userData.first_name[0].toUpperCase()
-                            : "U"}
-                        </Text>
-                      </Avatar>
+                        {user?.email ? user.email[0].toUpperCase() : "U"}
+                      </Text>
+                    </Avatar>
                     </Menu.Target>
                     <Menu.Dropdown>
                       <Menu.Label>
                         <Text size="xl">
-                          User: {userData?.first_name} {userData?.last_name}
+                          User: {user?.first_name || 'User'} {user?.last_name || ''}
                         </Text>
                       </Menu.Label>
                       <Menu.Label>
@@ -631,10 +538,10 @@ const Chat: React.FC = (serverUser: any) => {
                           <Text
                             size="xl"
                             span
-                            c={userData?.is_subscribed ? "green" : "red"}
+                            c={user?.is_subscribed ? "green" : "red"}
                             fw={600}
                           >
-                            {userData?.is_subscribed ? "Yes" : "No"}
+                            {user?.is_subscribed ? "Yes" : "No"}
                           </Text>
                         </Flex>
                       </Menu.Label>
@@ -682,10 +589,9 @@ const Chat: React.FC = (serverUser: any) => {
                       </Menu.Item>
                       <Menu.Item>
                         <Container
-                          onClick={handleLogout}
                           size="lg"
                           style={{
-                            backgroundColor: "red",
+                            backgroundColor: "#7e57c2",
                             borderRadius: "8px",
                             padding: "10px 20px",
                             cursor: "pointer",
@@ -695,27 +601,15 @@ const Chat: React.FC = (serverUser: any) => {
                             alignItems: "center",
                             width: "100%",
                           }}
-                          styles={(theme) => ({
-                            root: {
-                              "&:hover": {
-                                backgroundColor: theme.colors.blue[1],
-                              },
-                              "&:active": {
-                                backgroundColor: theme.colors.blue[2],
-                              },
-                            },
-                          })}
                         >
                           <LogoutLink
                           className="rounded-md px-4 py-2"
                           style={{
-                            backgroundColor: '#7e57c2', // This purple matches one of the gradient colors
                             color: 'white',
-                            borderRadius: '8px',
-                            padding: '8px 16px',
                             textDecoration: 'none',
-                            width: '200px',
-                            textAlign: 'center'
+                            width: '100%',
+                            textAlign: 'center',
+                            display: 'block'
                           }}
                           postLogoutRedirectURL="/">Logout</LogoutLink>
                         </Container>
@@ -725,7 +619,7 @@ const Chat: React.FC = (serverUser: any) => {
                 </Box>
                 <Group visibleFrom="sm">
                   <Text size="xl" mr="md">
-                    Token Balance: {userData?.token_balance}
+                    Token Balance: {user?.token_balance || 0}
                   </Text>
                   <Menu>
                     <Menu.Target>
@@ -768,12 +662,23 @@ const Chat: React.FC = (serverUser: any) => {
                           style={{
                             transition: "all 0.2s ease-in-out",
                             cursor: "pointer",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center"
                           }}
                         >
-                          <Text size="25px">
-                            {userData?.first_name
-                              ? userData.first_name[0].toUpperCase()
-                              : "U"}
+                          <Text 
+                            size="25px"
+                            style={{ 
+                              display: "flex", 
+                              justifyContent: "center", 
+                              alignItems: "center",
+                              width: "100%",
+                              height: "100%",
+                              margin: 0
+                            }}
+                          >
+                            {user?.email ? user.email[0].toUpperCase() : "U"}
                           </Text>
                         </Avatar>
                       </div>
@@ -781,7 +686,7 @@ const Chat: React.FC = (serverUser: any) => {
                     <Menu.Dropdown>
                       <Menu.Label>
                         <Text size="xl">
-                          User: {userData?.first_name} {userData?.last_name}
+                          User: {user?.first_name || 'User'} {user?.last_name || ''}
                         </Text>
                       </Menu.Label>
                       <Menu.Label>
@@ -790,10 +695,10 @@ const Chat: React.FC = (serverUser: any) => {
                           <Text
                             size="xl"
                             span
-                            c={userData?.is_subscribed ? "green" : "red"}
+                            c={user?.is_subscribed ? "green" : "red"}
                             fw={600}
                           >
-                            {userData?.is_subscribed ? "Yes" : "No"}
+                            {user?.is_subscribed ? "Yes" : "No"}
                           </Text>
                         </Flex>
                       </Menu.Label>
@@ -840,40 +745,22 @@ const Chat: React.FC = (serverUser: any) => {
                         </Stack>
                       </Menu.Item>
                       <Menu.Item>
-                        <Container
-                          onClick={handleLogout}
-                          size="lg"
+                        <LogoutLink
+                          className="rounded-md px-4 py-2"
                           style={{
-                            backgroundColor: "red",
-                            borderRadius: "8px",
-                            padding: "10px 20px",
-                            cursor: "pointer",
-                            transition: "background-color 0.3s ease",
-                            display: "flex",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            width: "100%",
+                            backgroundColor: '#7e57c2',
+                            color: 'white',
+                            borderRadius: '8px',
+                            padding: '8px 16px',
+                            textDecoration: 'none',
+                            width: '100%',
+                            textAlign: 'center',
+                            display: 'block'
                           }}
-                          styles={(theme) => ({
-                            root: {
-                              "&:hover": {
-                                backgroundColor: theme.colors.blue[1],
-                              },
-                              "&:active": {
-                                backgroundColor: theme.colors.blue[2],
-                              },
-                            },
-                          })}
+                          postLogoutRedirectURL="/"
                         >
-                          <Text
-                            size="25px"
-                            fw={500}
-                            span
-                            style={{ color: "black" }}
-                          >
-                            Logout
-                          </Text>
-                        </Container>
+                          Logout
+                        </LogoutLink>
                       </Menu.Item>
                     </Menu.Dropdown>
                   </Menu>
@@ -981,7 +868,7 @@ const Chat: React.FC = (serverUser: any) => {
                   backgroundColor: "transparent",
                 }}
               >
-                {loading ? (
+                {isLoading ? (
                   <Group justify="center" mt="xl">
                     <Loader color="black" />
                   </Group>
@@ -1125,10 +1012,10 @@ const Chat: React.FC = (serverUser: any) => {
                 <Text
                   size="xl"
                   span
-                  c={userData?.is_subscribed ? "green" : "red"}
+                  c={user?.is_subscribed ? "green" : "red"}
                   fw={600}
                 >
-                  {userData?.is_subscribed ? "Yes" : "No"}
+                  {user?.is_subscribed ? "Yes" : "No"}
                 </Text>
               </Flex>
             ) : (

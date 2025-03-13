@@ -1,6 +1,12 @@
 import '@mantine/core/styles.css';
+// Add this import for notifications
+import '@mantine/notifications/styles.css';
 import { ColorSchemeScript, MantineProvider } from '@mantine/core';
+// Add this import for notifications
+import { Notifications } from '@mantine/notifications';
 import { Merriweather } from 'next/font/google';
+// Import the AuthProvider
+import { AuthProvider } from '../components/auth/auth-provider';
 
 const merriweather = Merriweather({ weight: '400', subsets: ['latin'] });
 
@@ -39,7 +45,12 @@ export default function RootLayout({
             },
           }}
         >
-       {children}
+          {/* Add the Notifications component */}
+          <Notifications />
+          {/* Wrap children with AuthProvider */}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </MantineProvider>
       </body>
     </html>
